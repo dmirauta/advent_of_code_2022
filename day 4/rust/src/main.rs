@@ -59,26 +59,22 @@ fn range_pair(s: &str) -> Option<(Range, Range)> {
             return Some( (r1, r2) );
         }
     }
+    println!("invalid line encountered");
     return None;
 }
 
 fn line_has_enclosing(line: &str) -> bool {
-    if let Some((r1,r2)) = range_pair(line) {
-        if r1.encloses(&r2) || r2.encloses(&r1) {
-            return true;
-        }
-    } else { println!("invalid line encountered") }
-    return false;
+    match range_pair(line) {
+        Some((r1,r2)) => r1.encloses(&r2) || r2.encloses(&r1),
+        None => false
+    }
 }
 
 fn line_has_overlap(line: &str) -> bool {
-    let mut sp = line.split(",");
-    if let (Some(r1s), Some(r2s)) = (sp.next(), sp.next()) {
-        if let (Some(r1), Some(r2)) = (r1s.parse::<Range>().ok(), r2s.parse::<Range>().ok()) {
-            return r1.overlaps(&r2);
-        } else { println!("invalid range encountered") }
-    } else { println!("invalid line encountered") }
-    return false;
+    match range_pair(line) {
+        Some((r1,r2)) => r1.overlaps(&r2),
+        None => false
+    }
 }
 
 fn main() {
