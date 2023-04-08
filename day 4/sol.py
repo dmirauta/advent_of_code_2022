@@ -25,28 +25,25 @@ def solution_p2(lines):
 
     T = 0
     for i,(r1, r2) in enumerate(ranges):
-        print(r1,r2)
+        # print(r1,r2)
         if len(r1.intersection(r2))>0:
             T += 1
             # print(i)
 
     return T
 
-with open("input4", "r") as f:
+with open("input", "r") as f:
     lines = f.readlines()
+
+# with open("test_input", "r") as f:
+#     tlines = f.readlines()
+
+# Tt = solution(tlines)
 
 T = solution(lines)
 T2 = solution_p2(lines)
 
-#test
-test = """2-4,6-8
-2-3,4-5
-5-7,7-9
-2-8,3-7
-6-6,4-6
-2-6,4-8"""
-
-Tt = solution(test.split("\n"))
-
-print(T, Tt)
+# print(Tt)
+print(T)
 print(T2)
+

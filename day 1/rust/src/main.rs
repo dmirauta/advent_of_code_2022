@@ -1,9 +1,9 @@
 use std::{fs as fs};
 
-static FILE_PATH : &str = "../input";
+static INPUT_PATH : &str = "../input";
 
 fn parse() -> Vec<u32> {
-    let contents = fs::read_to_string(FILE_PATH).expect("Could not read {FILE_PATH}");
+    let contents = fs::read_to_string(INPUT_PATH).expect("Could not read {INPUT_PATH}");
     
     let mut calories:Vec<u32> = vec![0];
 

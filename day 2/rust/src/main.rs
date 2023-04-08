@@ -7,10 +7,10 @@ static P2_MOVES : [char;3] = ['X', 'Y', 'Z'];
                                     // 1 paper
                                         // 2 scissors
 
-static FILE_PATH : &str = "../input";
+static INPUT_PATH : &str = "../input";
 
 fn parse() -> Vec<(char, char)> {
-    let contents = fs::read_to_string(FILE_PATH).expect("Could not read {FILE_PATH}");
+    let contents = fs::read_to_string(INPUT_PATH).expect("Could not read {INPUT_PATH}");
     
     let mut moves:Vec<(char,char)> = vec![];
 
