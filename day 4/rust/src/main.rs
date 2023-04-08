@@ -34,7 +34,7 @@ enum RangeParseError {
 }
 
 impl From<ParseIntError> for RangeParseError {
-    fn from (err: ParseIntError) -> Self {
+    fn from(err: ParseIntError) -> Self {
         RangeParseError::BadDigit
     }
 }

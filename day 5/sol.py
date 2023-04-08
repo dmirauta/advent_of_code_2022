@@ -1,8 +1,11 @@
 import re
 from copy import copy
 
-with open("input5", "r") as f:
+with open("input", "r") as f:
     lines = f.readlines()
+
+with open("test_input5", "r") as f:
+    tlines = f.readlines()
 
 def parse_input(lines, nstacks=9):
     crates = []
@@ -55,17 +58,8 @@ def solve(lines, nstacks=9, sim=simulate2):
     sim(stacks, moves)
     return "".join([stack[-1] for stack in stacks])
 
-test_input = """    [D]    
-[N] [C]    
-[Z] [M] [P]
- 1   2   3 
 
-move 1 from 2 to 1
-move 3 from 1 to 3
-move 2 from 2 to 1
-move 1 from 1 to 2"""
-
-print(solve(test_input.split("\n"), 3))
+print(solve(tlines, 3))
 
 print(solve(lines, 9))
 
