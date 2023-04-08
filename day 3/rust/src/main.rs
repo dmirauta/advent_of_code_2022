@@ -6,16 +6,6 @@ fn priority(c : char) -> u32 {
     ALPHABET.find(c).expect("{c} not alphabetic?") as u32 + 1
 }
 
-fn find_duplicate_chars_(str1 : &str, str2 : &str) -> Vec<char> {
-    let mut duplicate_chars : Vec<char> = vec![];
-    for c1 in str1.chars() {
-        if str2.contains(c1) && !duplicate_chars.contains(&c1) {
-                duplicate_chars.push(c1);
-        }
-    }
-    duplicate_chars
-}
-
 fn find_duplicate_chars(s1: &str, s2: &str) -> HashSet<char> {
     let mut set = s1.chars().collect::<HashSet<char>>();
     set.retain(|&c| s2.contains(c));
