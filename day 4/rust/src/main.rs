@@ -79,8 +79,8 @@ fn line_has_overlap(line: &str) -> bool {
 
 fn main() {
     let contents = fs::read_to_string(INPUT_PATH).expect("Could not read {INPUT_PATH}");
-    let tcontents = fs::read_to_string(TEST_INPUT_PATH).expect("Could not read {TEST_INPUT_PATH}");
 
+    // let tcontents = fs::read_to_string(TEST_INPUT_PATH).expect("Could not read {TEST_INPUT_PATH}");
     // // test
     // for line in tcontents.lines() {
     //     println!("{} | {}", line, line_has_overlap(line));
