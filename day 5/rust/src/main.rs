@@ -18,14 +18,45 @@ fn process(line: &str) -> Vec<Option<char>> {
     crate_row
 }
 
+fn parse(contents: String) {
+    let mut stacks: Vec<Vec<char>> = vec![];
+    let mut crate_rows: Vec<Vec<Option<char>>> = vec![];
+    let mut lines = contents.lines();
+
+    while let Some(l) = lines.next() {
+        if !l.contains('[') {
+            break;
+        }
+        crate_rows.push(process(l));
+    }
+
+    for i in 0..crate_rows[0].len() {
+        stacks.push(vec![]);
+    }
+
+    crate_rows.reverse(); // we read from top, fill stacks from bottom
+    for row in crate_rows {
+        for (i, opt) in row.iter().enumerate() {
+            if let Some(c) = opt {
+                stacks[i].push(*c);
+            }
+        }
+    }
+
+    for stack in stacks {
+        dbg!(stack);
+    }
+
+    // parse move instructions
+
+}
+
 fn main() {
     let contents = fs::read_to_string(INPUT_PATH).expect("Could not read {INPUT_PATH}");
 
     let tcontents = fs::read_to_string(TEST_INPUT_PATH).expect("Could not read {TEST_INPUT_PATH}");
     let mut tlines = tcontents.lines();
 
-    dbg!(process(tlines.next().unwrap()));
-    dbg!(process(tlines.next().unwrap()));
-    dbg!(process(tlines.next().unwrap()));
+    parse(tcontents);
 
 }

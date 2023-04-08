@@ -23,7 +23,7 @@ def parse_input(lines, nstacks=9):
             break
 
     stacks_ = [ [row[i] for row in crates] for i in range(nstacks) ]
-    stacks = [ list(reversed(row)) for row in stacks_ ]
+    stacks = [ list(reversed(col)) for col in stacks_ ]
 
     for row in stacks:
         while row[-1] is None:
@@ -59,7 +59,9 @@ def solve(lines, nstacks=9, sim=simulate2):
     return "".join([stack[-1] for stack in stacks])
 
 
-print(solve(tlines, 3))
+# print(solve(tlines, 3, sim=simulate))
+# print(solve(tlines, 3, sim=simulate2))
 
-print(solve(lines, 9))
+print(solve(lines, 9, sim=simulate))
+print(solve(lines, 9, sim=simulate2))
 
