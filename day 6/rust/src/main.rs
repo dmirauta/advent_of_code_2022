@@ -1,11 +1,11 @@
 use std::{fs, collections::BTreeSet};
 
 fn first_unique_packet(stream : &str, packet_size: usize) -> usize {
-    let char_vec = stream.chars().collect::<Vec<_>>();
-    let (unique_window_idx, _w) = char_vec.windows(packet_size).enumerate()
-            .find(|(_i, w)| BTreeSet::from_iter(w.iter()).len()==packet_size).unwrap();
-    // dbg!(String::from_iter(_w.iter()));
-    unique_window_idx+packet_size
+    let mut i: usize = 0;
+    while BTreeSet::from_iter(stream[i..i+packet_size].chars()).len()!=packet_size {
+        i+=1;
+    }
+    i+packet_size
 }
 
 static INPUT_PATH : &str = "../input";
