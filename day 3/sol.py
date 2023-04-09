@@ -5,6 +5,7 @@ alphabet = string.ascii_lowercase + string.ascii_uppercase
 priority = lambda c: alphabet.index(c)+1
 
 def line_score(line):
+    line = line.strip()
     N = len(line)
     comp1, comp2 = line[:N//2], line[N//2:]
 
@@ -17,15 +18,14 @@ def line_score(line):
     return sum([ priority(c) for c in duplicates ])
 
 def group_badge(group):
-    sets = [ set(line) for line in group ]
+    sets = [ set(line.strip()) for line in group ]
     return ( list(sets[0].intersection(sets[1]).intersection(sets[2]))[0] )
 
-lines = []
 with open("input", "r") as f:
-    for line in f:
-        l = line.strip()
-        if len(l)>0:
-            lines.append(l)
+    lines = f.readlines()
+
+# with open("test_input", "r") as f:
+#     tlines = f.readlines()
 
 
 T = 0
@@ -36,16 +36,9 @@ N = len(lines)
 badges = [ group_badge([ lines[i*3+j] for j in range(3) ]) for i in range(N//3) ]
 T2 = sum([ priority(c) for c in badges ])
 
-print(T, T2)
+print("duplicate sum =", T)
+print("badge sum =", T2)
 
 # ## tests
-
-# t1 = """vJrwpWtwJgWrhcsFMMfFFhFp
-# jqHRNqRjqzjGDLGLrsFMfFZSrLrFZsSL
-# PmmdzqPrVvPwwTWBwg"""
-# t2 = """wMqvLMZHhHMvwLHjbvcjnnSBnvTQFn
-# ttgJtRGJQctTZtZT
-# CrZsJsPPZsGzwwsLwLmpwMDw"""
-
-# print(group_badge(t1.split("\n")),
-#       group_badge(t2.split("\n")))
+# print(group_badge(tlines[:3]),
+#       group_badge(tlines[3:])

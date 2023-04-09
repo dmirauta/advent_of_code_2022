@@ -44,6 +44,6 @@ T = solution(lines)
 T2 = solution_p2(lines)
 
 # print(Tt)
-print(T)
-print(T2)
+print("num enclosings =", T)
+print("num overlaps =", T2)
 

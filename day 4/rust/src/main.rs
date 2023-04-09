@@ -2,9 +2,6 @@ use std::fs;
 use std::num::ParseIntError;
 use std::str::FromStr;
 
-static INPUT_PATH : &str = "../input";
-static TEST_INPUT_PATH : &str = "../test_input";
-
 #[derive(Debug)]
 struct Range {
     low: u32,
@@ -34,7 +31,7 @@ enum RangeParseError {
 }
 
 impl From<ParseIntError> for RangeParseError {
-    fn from(err: ParseIntError) -> Self {
+    fn from(_err: ParseIntError) -> Self {
         RangeParseError::BadDigit
     }
 }
@@ -76,6 +73,9 @@ fn line_has_overlap(line: &str) -> bool {
         None => false
     }
 }
+
+static INPUT_PATH : &str = "../input";
+// static TEST_INPUT_PATH : &str = "../test_input";
 
 fn main() {
     let contents = fs::read_to_string(INPUT_PATH).expect("Could not read {INPUT_PATH}");
