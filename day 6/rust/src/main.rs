@@ -1,11 +1,13 @@
 use std::{fs, collections::BTreeSet};
 
 fn first_unique_packet(stream : &str, packet_size: usize) -> usize {
-    let mut i: usize = 0;
-    while BTreeSet::from_iter(stream[i..i+packet_size].chars()).len()!=packet_size {
-        i+=1;
+    for i in 0..stream.len()-packet_size {
+        if BTreeSet::from_iter(stream[i..i+packet_size].chars()).len()==packet_size {
+            return i+packet_size;
+        }
     }
-    i+packet_size
+    println!("no packet found in loop");
+    stream.len()+1
 }
 
 static INPUT_PATH : &str = "../input";

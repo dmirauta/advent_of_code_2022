@@ -5,12 +5,10 @@ s = lines[0]
 with open("test_input", "r") as f:
     tlines = f.readlines()
 
-def solve(s,
-          ps=4 # package size
-          ):
-    for i in range(len(s)-ps+1):
-        if len(set(s[i:i+ps]))==ps:
-            return i+ps
+def solve(s, packet_size=4):
+    for i in range(len(s)-packet_size+1):
+        if len(set(s[i:i+packet_size]))==packet_size:
+            return i+packet_size
 
 # #part 1 test
 # for line in tlines:
@@ -24,5 +22,5 @@ print("part 1")
 print(solve(s))
 
 print("part 2")
-print(solve(s, ps=14))
+print(solve(s, packet_size=14))
 
