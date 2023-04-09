@@ -4,7 +4,7 @@ from copy import copy
 with open("input", "r") as f:
     lines = f.readlines()
 
-with open("test_input5", "r") as f:
+with open("test_input", "r") as f:
     tlines = f.readlines()
 
 def parse_input(lines, nstacks=9):
@@ -37,13 +37,13 @@ def parse_input(lines, nstacks=9):
 
     return stacks, moves
 
-def simulate(stacks, moves):
+def crate_mover9000(stacks, moves):
     for q, s1, s2 in moves:
         for i in range(q):
             c = stacks[s1-1].pop()
             stacks[s2-1].append(c)
 
-def simulate2(stacks, moves):
+def crate_mover9001(stacks, moves):
     for q, s1, s2 in moves:
         ministack = []
         for i in range(q):
@@ -53,7 +53,7 @@ def simulate2(stacks, moves):
             c = ministack.pop()
             stacks[s2-1].append(c)
 
-def solve(lines, nstacks=9, sim=simulate2):
+def solve(lines, nstacks=9, sim=crate_mover9001):
     stacks, moves = parse_input(lines, nstacks)
     sim(stacks, moves)
     return "".join([stack[-1] for stack in stacks])
@@ -62,6 +62,7 @@ def solve(lines, nstacks=9, sim=simulate2):
 # print(solve(tlines, 3, sim=simulate))
 # print(solve(tlines, 3, sim=simulate2))
 
-print(solve(lines, 9, sim=simulate))
-print(solve(lines, 9, sim=simulate2))
+print(solve(lines, 9, sim=crate_mover9000))
+print(solve(lines, 9, sim=crate_mover9001))
+
 
