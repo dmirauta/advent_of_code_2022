@@ -38,7 +38,7 @@ with open("input", "r") as f:
         instructions.append( line.split() )
 
 TS = sum(map(lambda ins: score(*ins), instructions))
-TS2 = sum(map(lambda ins: score(*ins), instructions))
+TS2 = sum(map(lambda ins: score2(*ins), instructions))
 
 print(TS, TS2)
 

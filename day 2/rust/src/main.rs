@@ -38,23 +38,23 @@ fn _score(p1_id : u32, p2_id : u32) -> u32 {
     score
 }
 
+fn get_pos(c: char, arr: [char; 3]) -> u32 {
+    arr.iter().position(|&r| r == c).expect("Invalid p1 move") as u32
+}
+
 fn score(p1_move : char, p2_move : char) -> u32 {
     // p1 is opponent, p2 is "you"
 
-    let p1_id = P1_MOVES.iter().position(|&r| r == p1_move)
-                        .expect("Invalid p1 move") as u32;
-    let p2_id = P2_MOVES.iter().position(|&r| r == p2_move)
-                        .expect("Invalid p2 move") as u32;
+    let p1_id = get_pos(p1_move, P1_MOVES);
+    let p2_id = get_pos(p2_move, P2_MOVES);
 
     _score(p1_id, p2_id)
 }
 
 fn score2(p1_move : char, outcome : char) -> u32 {
 
-    let p1_id = P1_MOVES.iter().position(|&r| r == p1_move)
-                        .expect("Invalid p1 move") as u32;
-    let p2_offset = P2_MOVES.iter().position(|&r| r == outcome)
-                        .expect("Invalid outcome") as u32 + 2; // -1 + 3
+    let p1_id = get_pos(p1_move, P1_MOVES);
+    let p2_offset = get_pos(outcome, P2_MOVES)+2; // -1 + 3
     let p2_id = (p1_id+p2_offset)%3;
 
     _score(p1_id, p2_id)
