@@ -109,27 +109,47 @@ fn crate_mover9001(stacks: &mut Vec<Stack>, instructions: &Vec<Instruction>) {
     }
 }
 
+fn stack_tops(stacks: &Vec<Stack>) -> String {
+    String::from_iter(stacks.iter().map(|s| s.last().unwrap()))
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::*;
+    use std::fs;
+    static TEST_INPUT_PATH : &str = "../test_input";
+
+    #[test]
+    fn part_1() {
+        let tcontents = fs::read_to_string(TEST_INPUT_PATH).expect("Could not read {TEST_INPUT_PATH}");
+        let (mut stacks, instructions) = parse(tcontents);
+        crate_mover9000(&mut stacks, &instructions);
+        assert_eq!(stack_tops(&stacks), "CMZ");
+    }
+
+    #[test]
+    fn part_2() {
+        let tcontents = fs::read_to_string(TEST_INPUT_PATH).expect("Could not read {TEST_INPUT_PATH}");
+        let (mut stacks, instructions) = parse(tcontents);
+        crate_mover9001(&mut stacks, &instructions);
+        assert_eq!(stack_tops(&stacks), "MCD");
+    }
+}
+
 static INPUT_PATH : &str = "../input";
-// static TEST_INPUT_PATH : &str = "../test_input";
 
 fn main() {
     let contents = fs::read_to_string(INPUT_PATH).expect("Could not read {INPUT_PATH}");
-    // let tcontents = fs::read_to_string(TEST_INPUT_PATH).expect("Could not read {TEST_INPUT_PATH}");
 
     let (mut stacks, instructions) = parse(contents);
     let mut stacks_p2 = stacks.clone();
 
     crate_mover9000(&mut stacks, &instructions);
-    let part_1 = String::from_iter(stacks.iter().map(|s| s.last().unwrap()));
+    let part_1 = stack_tops(&stacks);
     dbg!(part_1);
 
     crate_mover9001(&mut stacks_p2, &instructions);
-    let part_2 = String::from_iter(stacks_p2.iter().map(|s| s.last().unwrap()));
+    let part_2 = stack_tops(&stacks_p2);
     dbg!(part_2);
-
-    // for stack in stacks {
-    //     dbg!(stack);
-    // }
-    // dbg!(instructions);
 
 }

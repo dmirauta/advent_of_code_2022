@@ -75,16 +75,34 @@ fn line_has_overlap(line: &str) -> bool {
 }
 
 static INPUT_PATH : &str = "../input";
-// static TEST_INPUT_PATH : &str = "../test_input";
+
+#[cfg(test)]
+mod test {
+    use std::fs;
+    use crate::*;
+    static TEST_INPUT_PATH : &str = "../test_input";
+
+    #[test]
+    fn part1() {
+        let tcontents = fs::read_to_string(TEST_INPUT_PATH).expect("Could not read {TEST_INPUT_PATH}");
+        let results: [bool; 6] = [false, false, false, true, true, false];
+        for (i, line) in tcontents.lines().enumerate() {
+            assert_eq!(line_has_enclosing(line), results[i]);
+        }
+    }
+
+    #[test]
+    fn part2() {
+        let tcontents = fs::read_to_string(TEST_INPUT_PATH).expect("Could not read {TEST_INPUT_PATH}");
+        let results: [bool; 6] = [false, false, true, true, true, true];
+        for (i, line) in tcontents.lines().enumerate() {
+            assert_eq!(line_has_overlap(line), results[i]);
+        }
+    }
+}
 
 fn main() {
     let contents = fs::read_to_string(INPUT_PATH).expect("Could not read {INPUT_PATH}");
-
-    // let tcontents = fs::read_to_string(TEST_INPUT_PATH).expect("Could not read {TEST_INPUT_PATH}");
-    // // test
-    // for line in tcontents.lines() {
-    //     println!("{} | {}", line, line_has_overlap(line));
-    // }
 
     let num_enclosings = contents.lines().filter(|l| line_has_enclosing(l)).count();
     dbg!(num_enclosings);
