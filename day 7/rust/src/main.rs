@@ -1,83 +1,75 @@
+use std::{fmt::Debug};
+
+// type RcRc<T> = Rc<RefCell<T>>;
 
 #[derive(Debug)]
-struct File {
+enum Node<T: Debug> {
+    Inner {children: Vec<usize>},
+    Leaf {data: T}
+}
+
+#[derive(Debug)]
+struct NodeWrap<T: Debug> {
+    idx: usize, // will change if nodes removed, not needed if not backtracking?
     name: String,
-    size: usize
+    node: Node<T>
+}
+
+impl<T: Debug> ToString for NodeWrap<T> {
+    fn to_string(&self) -> String {
+        match &self.node {
+            Node::Inner { children:_ } => format!("{} (Dir)", self.name),
+            Node::Leaf { data } => format!("{} (File, {:?})", self.name, data)
+        }
+    }
 }
 
 #[derive(Debug)]
-struct Dir {
-    name: String,
-    parent: Option<Box<Dir>>,
-    children: Vec<Box<FSNode>>
+struct FlatTree<T: Debug> {
+    nodes: Vec<NodeWrap<T>>
 }
 
-#[derive(Debug)]
-enum FSNode {
-    File(File),
-    Dir(Dir)
-}
-
-#[derive(Debug)]
-struct DirTree {
-    root: FSNode,
-    current_dir: Box<FSNode>,
-}
-
-trait Size {
-    fn get_size(&self) -> usize;
-}
-
-impl Size for File {
-    fn get_size(&self) -> usize {
-        self.size
+impl<T: Debug> FlatTree<T> {
+    fn new() -> FlatTree<T> {
+        FlatTree { nodes: vec![] }
     }
-}
 
-impl Size for Dir {
-    fn get_size(&self) -> usize {
-        self.children.iter().map(|c| {
-            match c.as_ref() {
-                FSNode::File(file) => file.get_size(),
-                FSNode::Dir(dir) => dir.get_size(),
-            }
-        }).sum()
-    }
-}
-
-impl Dir {
-    fn add_file(&mut self, child: File) {
-        self.children.push( Box::new(FSNode::File(child)) );
-    }
-    fn add_dir(&mut self, child: Dir) {
-        self.children.push( Box::new(FSNode::Dir(child)) );
-    }
-    fn ls(&self) {
-        println!("ls {}", self.name);
-        for fsn in self.children.iter() {
-            match fsn.as_ref() {
-                FSNode::File(file) => println!("{} {}", file.name, file.size),
-                FSNode::Dir(dir) => println!("{} {}", dir.name, dir.children.len()),
+    fn new_node(&mut self, name: String, 
+                           data: Option<T>, 
+                           parent: Option<usize>) {
+        let node = if let Some(d) = data {
+            Node::Leaf { data: d }
+        } else {
+            Node::Inner { children: vec![] }
+        };
+        let idx = self.nodes.len();
+        if let Some(pidx) = parent {
+            if let Node::Inner {children} = &mut self.nodes[pidx].node {
+                children.push(idx);
             }
         }
-        println!("");
+        let nw = NodeWrap {idx, name, node};
+        self.nodes.push(nw);
     }
 
-    fn subdirs(&self) -> Vec<&Box<FSNode>> {
-        self.children.iter().filter(|c| {
-            if let FSNode::Dir(dir) = c.as_ref() {true} else {false}
-        }).collect()
+    fn ls(&self, idx: usize) {
+        if let Node::Inner { children } = &self.nodes[idx].node {
+            for &i in children {
+                println!("{}", &self.nodes[i].to_string());
+            }
+        }
     }
 }
 
+#[derive(Debug)]
+struct FileData(usize);
+
 fn main() {
-    let mut root = Dir {name:"/".to_string(), parent:None, children:vec![]};
-    root.add_file(File {name:"a".to_string(), size:50});
-    root.add_dir(Dir {name:"b".to_string(), parent:None, children:vec![]});
+    let mut tree = FlatTree::<FileData>::new();
 
-    root.ls();
+    tree.new_node("/".to_string(), None, None);
+    tree.new_node("a".to_string(), Some(FileData(50)), Some(0));
+    tree.new_node("b".to_string(), None, Some(0));
 
-    for c in root.subdirs() {
-        dbg!(c);
-    }
+    tree.ls(0);
 }
