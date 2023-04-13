@@ -16,20 +16,6 @@ pub struct Node<T: Debug> {
     pub variant: NodeVariant<T>
 }
 
-pub trait NamedVariants { // does not pick up default impl?
-    fn inner_name() -> String { "Inner".to_string() }
-    fn leaf_name() -> String { "Leaf".to_string() }
-}
-
-impl<T: Debug> ToString for Node<T> where Node<T> : NamedVariants {
-    fn to_string(&self) -> String {
-        match &self.variant {
-            NodeVariant::Inner { children:_ } => format!("{} ({})", Node::<T>::inner_name(), self.name),
-            NodeVariant::Leaf { data } => format!("{} ({}, {:?})", Node::<T>::leaf_name(), self.name, data)
-        }
-    }
-}
-
 #[derive(Debug)]
 pub struct FlatTree<T: Debug> {
     pub nodes: Vec<Node<T>>,
@@ -89,8 +75,8 @@ impl<T: Debug> FlatTree<T> {
     }
 }
 
-impl<T: Debug> FlatTree<T> where Node<T> : NamedVariants {
-    pub fn ls(&self, idx: usize) {
+impl<T: Debug> FlatTree<T> where Node<T> : ToString {
+    pub fn print_children(&self, idx: usize) {
         if let NodeVariant::Inner { children } = &self.nodes[idx].variant {
             println!("{}", &self.nodes[idx].name);
             for &i in children {

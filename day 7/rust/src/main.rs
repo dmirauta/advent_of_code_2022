@@ -10,9 +10,13 @@ use tree::*;
 #[derive(Debug)]
 struct FileData(usize);
 
-impl NamedVariants for Node<FileData> {
-    fn inner_name() -> String { "Dir".to_string() }
-    fn leaf_name() -> String { "File".to_string() }
+impl ToString for Node<FileData> {
+    fn to_string(&self) -> String {
+        match &self.variant {
+            NodeVariant::Inner { children:_ } => format!("{} ({})", "Dir", self.name),
+            NodeVariant::Leaf { data } => format!("{} ({}, {:?})", "File", self.name, data)
+        }
+    }
 }
 
 impl FlatTree<FileData> {
@@ -24,6 +28,10 @@ impl FlatTree<FileData> {
         } else {
             vec![]
         }
+    }
+
+    fn ls(&self, idx: usize) {
+        self.print_children(idx);
     }
 }
 
