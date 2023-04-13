@@ -15,6 +15,7 @@ struct NodeWrap<T: Debug> {
     node: Node<T>
 }
 
+// Naming specific to dirtree...
 impl<T: Debug> ToString for NodeWrap<T> {
     fn to_string(&self) -> String {
         match &self.node {
@@ -59,6 +60,20 @@ impl<T: Debug> FlatTree<T> {
             }
         }
     }
+
+    fn subdirs(&self, idx: usize) -> Vec<usize> {
+        if let Node::Inner { children } = &self.nodes[idx].node {
+            let mut out = vec![];
+            for &c in children {
+                if let Node::Inner { children } = &self.nodes[c].node {
+                    out.push(c);
+                }
+            } // had to trouble with filter and collecting &usize
+            out
+        } else {
+            vec![]
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -72,4 +87,7 @@ fn main() {
     tree.new_node("b".to_string(), None, Some(0));
 
     tree.ls(0);
+
+    dbg!(tree.subdirs(0));
+    dbg!(tree.subdirs(0));
 }
