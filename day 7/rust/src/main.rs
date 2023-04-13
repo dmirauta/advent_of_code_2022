@@ -55,8 +55,9 @@ impl<T: Debug> FlatTree<T> {
 
     fn ls(&self, idx: usize) {
         if let Node::Inner { children } = &self.nodes[idx].node {
+            println!("{}", &self.nodes[idx].name);
             for &i in children {
-                println!("{}", &self.nodes[i].to_string());
+                println!("  {}", &self.nodes[i].to_string());
             }
         }
     }
@@ -65,7 +66,7 @@ impl<T: Debug> FlatTree<T> {
         if let Node::Inner { children } = &self.nodes[idx].node {
             let mut out = vec![];
             for &c in children {
-                if let Node::Inner { children } = &self.nodes[c].node {
+                if let Node::Inner { children:_ } = &self.nodes[c].node {
                     out.push(c);
                 }
             } // had to trouble with filter and collecting &usize
@@ -83,11 +84,18 @@ fn main() {
     let mut tree = FlatTree::<FileData>::new();
 
     tree.new_node("/".to_string(), None, None);
+
     tree.new_node("a".to_string(), Some(FileData(50)), Some(0));
     tree.new_node("b".to_string(), None, Some(0));
+    tree.new_node("c".to_string(), Some(FileData(25)), Some(0));
+
+    tree.new_node("d".to_string(), Some(FileData(25)), Some(2));
+    tree.new_node("e".to_string(), Some(FileData(25)), Some(2));
+    tree.new_node("f".to_string(), None, Some(0));
 
     tree.ls(0);
+    tree.ls(2);
 
     dbg!(tree.subdirs(0));
-    dbg!(tree.subdirs(0));
+
 }
