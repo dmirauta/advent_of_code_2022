@@ -27,14 +27,18 @@ fn main() {
     let mut tree = FlatTree::<FileData>::new();
 
     tree.new_node("/".to_string(), None, None);
+    tree.to_root();
 
-    tree.new_node("a".to_string(), Some(FileData(50)), Some(0));
-    tree.new_node("b".to_string(), None, Some(0));
-    tree.new_node("c".to_string(), Some(FileData(25)), Some(0));
+    tree.new_here("a".to_string(), Some(FileData(50)));
+    tree.new_here("b".to_string(), None);
+    tree.new_here("c".to_string(), Some(FileData(25)));
 
-    tree.new_node("d".to_string(), Some(FileData(25)), Some(2));
-    tree.new_node("e".to_string(), Some(FileData(25)), Some(2));
-    tree.new_node("f".to_string(), None, Some(0));
+    tree.traverse_into("b".to_string());
+    tree.new_here("d".to_string(), Some(FileData(25)));
+    tree.new_here("e".to_string(), Some(FileData(25)));
+
+    tree.to_root();
+    tree.new_here("f".to_string(), None);
 
     tree.ls(0);
     tree.ls(2);

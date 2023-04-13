@@ -32,12 +32,13 @@ impl<T: Debug> ToString for Node<T> where Node<T> : NamedVariants {
 
 #[derive(Debug)]
 pub struct FlatTree<T: Debug> {
-    pub nodes: Vec<Node<T>>
+    pub nodes: Vec<Node<T>>,
+    pub current: Option<usize> // for traversal, should only point at Inner variant, but not constrained
 }
 
 impl<T: Debug> FlatTree<T> {
     pub fn new() -> FlatTree<T> {
-        FlatTree { nodes: vec![] }
+        FlatTree { nodes: vec![], current:None }
     }
 
     pub fn new_node(&mut self, name: String, 
@@ -56,6 +57,36 @@ impl<T: Debug> FlatTree<T> {
         self.nodes.push( Node {idx, parent, name, variant} );
     }
 
+    pub fn new_here(&mut self, name: String, data: Option<T>, ) {
+        self.new_node(name, data, self.current)
+    }
+
+    pub fn traverse_into(&mut self, name:String) {
+        if let Some(i) = self.current {
+            if let NodeVariant::Inner { children } = &self.nodes[i].variant {
+                for &ci in children {
+                    if self.nodes[ci].name == name { // should check if innner here really
+                        self.current = Some(ci);
+                        break
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn traverse_up(&mut self) {
+        if let Some(i) = self.current {
+            if let Some(pi) = self.nodes[i].parent {
+                self.current = Some(pi)
+            }
+        }
+    }
+
+    pub fn to_root(&mut self) {
+        if self.nodes.len()>0 {
+            self.current = Some(0)
+        }
+    }
 }
 
 impl<T: Debug> FlatTree<T> where Node<T> : NamedVariants {
