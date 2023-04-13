@@ -13,8 +13,8 @@ struct FileData(usize);
 impl ToString for Node<FileData> {
     fn to_string(&self) -> String {
         match &self.variant {
-            NodeVariant::Inner { children:_ } => format!("{} ({})", "Dir", self.name),
-            NodeVariant::Leaf { data } => format!("{} ({}, {:?})", "File", self.name, data)
+            NodeVariant::Inner { children:_ } => format!("{} ({})", self.name, "dir"),
+            NodeVariant::Leaf { data } => format!("{} ({}, size={:?})", self.name, "file", data)
         }
     }
 }
@@ -43,17 +43,13 @@ enum Input {
     ListedFile{name: String, size: usize}
 }
 
-static CD_PATTERN: &str = r"\$ cd (.*)";
-static DIR_PATTERN: &str = r"dir (.*)";
-static FILE_PATTERN: &str = r"(\d*) (.*)";
-
 impl FromStr for Input {
     type Err = String;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         lazy_static! {
-            static ref RE_CD: Regex   = Regex::new(CD_PATTERN).unwrap();
-            static ref RE_DIR: Regex  = Regex::new(DIR_PATTERN).unwrap();
-            static ref RE_FILE: Regex = Regex::new(FILE_PATTERN).unwrap();
+            static ref RE_CD: Regex   = Regex::new(r"\$ cd (.*)").unwrap();
+            static ref RE_DIR: Regex  = Regex::new(r"dir (.*)").unwrap();
+            static ref RE_FILE: Regex = Regex::new(r"(\d*) (.*)").unwrap();
         }
 
         if s==r"$ ls" {
@@ -70,16 +66,37 @@ impl FromStr for Input {
     }
 }
 
+fn build_tree(contents: &String, tree: &mut FlatTree<FileData>) {
+    for line in contents.lines() {
+        match line.parse::<Input>().unwrap() {
+            Input::ListedDir { name } => tree.new_here(name, None),
+            Input::ListedFile { name, size } => tree.new_here(name, Some(FileData(size))),
+            Input::Cd { to_dir } => {
+                if to_dir=="/" {
+                    tree.to_root()
+                } else if to_dir==".." {
+                    tree.traverse_up()
+                } else {
+                    tree.traverse_into(to_dir)
+                }
+            },
+            _ => ()
+        }
+    }
+}
+
 static INPUT_PATH : &str = "../input";
 static TEST_INPUT_PATH : &str = "../test_input";
 
 fn main() {
     let mut tree = FlatTree::<FileData>::new();
+    tree.new_node("/".to_string(), None, None);
 
     let tcontents = fs::read_to_string(TEST_INPUT_PATH).expect("Could not read {TEST_INPUT_PATH}");
 
-    for line in tcontents.lines() {
-        dbg!(line.parse::<Input>().unwrap());
-    }
+    build_tree(&tcontents, &mut tree);
+
+    tree.ls(0);
+    tree.ls(4);
 
 }
