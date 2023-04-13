@@ -1,19 +1,12 @@
 use std::fmt::Debug;
 
-// type RcRc<T> = Rc<RefCell<T>>;
-
-#[derive(Debug)]
-pub enum NodeVariant<T: Debug> {
-    Inner {children: Vec<usize>},
-    Leaf {data: T}
-}
-
 #[derive(Debug)]
 pub struct Node<T: Debug> {
     pub idx: usize, // will change if nodes removed, not needed if not backtracking?
     pub parent: Option<usize>,
     pub name: String,
-    pub variant: NodeVariant<T>
+    pub data: T,
+    pub children: Vec<usize>
 }
 
 #[derive(Debug)]
@@ -28,33 +21,26 @@ impl<T: Debug> FlatTree<T> {
     }
 
     pub fn new_node(&mut self, name: String, 
-                           data: Option<T>, 
+                           data: T, 
                            parent: Option<usize>) {
-        let variant = match data {
-            Some(d) => NodeVariant::Leaf { data: d },
-            None       => NodeVariant::Inner { children: vec![] }
-        };
         let idx = self.nodes.len();
         if let Some(pidx) = parent {
-            if let NodeVariant::Inner {children} = &mut self.nodes[pidx].variant {
-                children.push(idx);
-            }
+            self.nodes[pidx].children.push(idx)
         }
-        self.nodes.push( Node {idx, parent, name, variant} );
+        let children: Vec<usize> = vec![];
+        self.nodes.push( Node {idx, parent, name, data, children} );
     }
 
-    pub fn new_here(&mut self, name: String, data: Option<T>, ) {
+    pub fn new_here(&mut self, name: String, data: T, ) {
         self.new_node(name, data, self.current)
     }
 
     pub fn traverse_into(&mut self, name:String) {
         if let Some(i) = self.current {
-            if let NodeVariant::Inner { children } = &self.nodes[i].variant {
-                for &ci in children {
-                    if self.nodes[ci].name == name { // should check if innner here really
-                        self.current = Some(ci);
-                        break
-                    }
+            for &ci in &self.nodes[i].children {
+                if self.nodes[ci].name == name { // should check if innner here really
+                    self.current = Some(ci);
+                    break
                 }
             }
         }
@@ -77,11 +63,9 @@ impl<T: Debug> FlatTree<T> {
 
 impl<T: Debug> FlatTree<T> where Node<T> : ToString {
     pub fn print_children(&self, idx: usize) {
-        if let NodeVariant::Inner { children } = &self.nodes[idx].variant {
-            println!("{}", &self.nodes[idx].name);
-            for &i in children {
-                println!("  {}", &self.nodes[i].to_string());
-            }
+        println!("{}", &self.nodes[idx].name);
+        for &i in &self.nodes[idx].children {
+            println!("  {}", &self.nodes[i].to_string());
         }
     }
 }

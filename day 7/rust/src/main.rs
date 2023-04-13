@@ -8,28 +8,22 @@ mod tree;
 use tree::*;
 
 #[derive(Debug)]
-struct FileData(usize);
+struct FileData {
+    size: Option<usize>,
+    is_dir: bool
+}
 
 impl ToString for Node<FileData> {
     fn to_string(&self) -> String {
-        match &self.variant {
-            NodeVariant::Inner { children:_ } => format!("{} ({})", self.name, "dir"),
-            NodeVariant::Leaf { data } => format!("{} ({}, size={:?})", self.name, "file", data)
+        match self.data.is_dir {
+            false => format!("{} ({}, size={:?})", self.name, "file", self.data.size.unwrap()),
+            true => format!("{} ({})", self.name, "dir"),
+            
         }
     }
 }
 
 impl FlatTree<FileData> {
-    fn subdirs(&self, idx: usize) -> Vec<usize> {
-        if let NodeVariant::Inner { children } = &self.nodes[idx].variant {
-            children.iter().filter(|c| match &self.nodes[**c].variant {
-                NodeVariant::Inner {children:_} => true, _ => false
-            }).cloned().collect()
-        } else {
-            vec![]
-        }
-    }
-
     fn ls(&self, idx: usize) {
         self.print_children(idx);
     }
@@ -69,8 +63,8 @@ impl FromStr for Input {
 fn build_tree(contents: &String, tree: &mut FlatTree<FileData>) {
     for line in contents.lines() {
         match line.parse::<Input>().unwrap() {
-            Input::ListedDir { name } => tree.new_here(name, None),
-            Input::ListedFile { name, size } => tree.new_here(name, Some(FileData(size))),
+            Input::ListedDir { name } => tree.new_here(name, FileData {size: None, is_dir: true}),
+            Input::ListedFile { name, size } => tree.new_here(name, FileData {size: Some(size), is_dir: false}),
             Input::Cd { to_dir } => {
                 if to_dir=="/" {
                     tree.to_root()
@@ -89,8 +83,8 @@ static INPUT_PATH : &str = "../input";
 static TEST_INPUT_PATH : &str = "../test_input";
 
 fn main() {
-    let mut tree = FlatTree::<FileData>::new();
-    tree.new_node("/".to_string(), None, None);
+    let mut tree = FlatTree::<FileData>::new(); // should initialise with root?
+    tree.new_node("/".to_string(), FileData {size: None, is_dir: true}, None);
 
     let tcontents = fs::read_to_string(TEST_INPUT_PATH).expect("Could not read {TEST_INPUT_PATH}");
 
