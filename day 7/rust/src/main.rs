@@ -1,33 +1,38 @@
-use std::{fmt::Debug};
+use std::{fmt::Debug, fs::File};
 
 // type RcRc<T> = Rc<RefCell<T>>;
 
 #[derive(Debug)]
-enum Node<T: Debug> {
+enum NodeVariant<T: Debug> {
     Inner {children: Vec<usize>},
     Leaf {data: T}
 }
 
 #[derive(Debug)]
-struct NodeWrap<T: Debug> {
+struct Node<T: Debug> {
     idx: usize, // will change if nodes removed, not needed if not backtracking?
+    parent: Option<usize>,
     name: String,
-    node: Node<T>
+    variant: NodeVariant<T>
 }
 
-// Naming specific to dirtree...
-impl<T: Debug> ToString for NodeWrap<T> {
+trait NamedVariants { // does not pick up default impl?
+    fn inner_name() -> String { "Inner".to_string() }
+    fn leaf_name() -> String { "Leaf".to_string() }
+}
+
+impl<T: Debug> ToString for Node<T> where Node<T> : NamedVariants {
     fn to_string(&self) -> String {
-        match &self.node {
-            Node::Inner { children:_ } => format!("{} (Dir)", self.name),
-            Node::Leaf { data } => format!("{} (File, {:?})", self.name, data)
+        match &self.variant {
+            NodeVariant::Inner { children:_ } => format!("{} ({})", Node::<T>::inner_name(), self.name),
+            NodeVariant::Leaf { data } => format!("{} ({}, {:?})", Node::<T>::leaf_name(), self.name, data)
         }
     }
 }
 
 #[derive(Debug)]
 struct FlatTree<T: Debug> {
-    nodes: Vec<NodeWrap<T>>
+    nodes: Vec<Node<T>>
 }
 
 impl<T: Debug> FlatTree<T> {
@@ -38,35 +43,46 @@ impl<T: Debug> FlatTree<T> {
     fn new_node(&mut self, name: String, 
                            data: Option<T>, 
                            parent: Option<usize>) {
-        let node = if let Some(d) = data {
-            Node::Leaf { data: d }
-        } else {
-            Node::Inner { children: vec![] }
+        let variant = match data {
+            Some(d) => NodeVariant::Leaf { data: d },
+            None       => NodeVariant::Inner { children: vec![] }
         };
         let idx = self.nodes.len();
         if let Some(pidx) = parent {
-            if let Node::Inner {children} = &mut self.nodes[pidx].node {
+            if let NodeVariant::Inner {children} = &mut self.nodes[pidx].variant {
                 children.push(idx);
             }
         }
-        let nw = NodeWrap {idx, name, node};
-        self.nodes.push(nw);
+        self.nodes.push( Node {idx, parent, name, variant} );
     }
 
+}
+
+impl<T: Debug> FlatTree<T> where Node<T> : NamedVariants {
     fn ls(&self, idx: usize) {
-        if let Node::Inner { children } = &self.nodes[idx].node {
+        if let NodeVariant::Inner { children } = &self.nodes[idx].variant {
             println!("{}", &self.nodes[idx].name);
             for &i in children {
                 println!("  {}", &self.nodes[i].to_string());
             }
         }
     }
+}
 
+#[derive(Debug)]
+struct FileData(usize);
+
+impl NamedVariants for Node<FileData> {
+    fn inner_name() -> String { "Dir".to_string() }
+    fn leaf_name() -> String { "File".to_string() }
+}
+
+impl FlatTree<FileData> {
     fn subdirs(&self, idx: usize) -> Vec<usize> {
-        if let Node::Inner { children } = &self.nodes[idx].node {
+        if let NodeVariant::Inner { children } = &self.nodes[idx].variant {
             let mut out = vec![];
             for &c in children {
-                if let Node::Inner { children:_ } = &self.nodes[c].node {
+                if let NodeVariant::Inner { children:_ } = &self.nodes[c].variant {
                     out.push(c);
                 }
             } // had to trouble with filter and collecting &usize
@@ -76,9 +92,6 @@ impl<T: Debug> FlatTree<T> {
         }
     }
 }
-
-#[derive(Debug)]
-struct FileData(usize);
 
 fn main() {
     let mut tree = FlatTree::<FileData>::new();
