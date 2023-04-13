@@ -80,13 +80,9 @@ impl NamedVariants for Node<FileData> {
 impl FlatTree<FileData> {
     fn subdirs(&self, idx: usize) -> Vec<usize> {
         if let NodeVariant::Inner { children } = &self.nodes[idx].variant {
-            let mut out = vec![];
-            for &c in children {
-                if let NodeVariant::Inner { children:_ } = &self.nodes[c].variant {
-                    out.push(c);
-                }
-            } // had to trouble with filter and collecting &usize
-            out
+            children.iter().filter(|c| match &self.nodes[**c].variant {
+                NodeVariant::Inner {children:_} => true, _ => false
+            }).cloned().collect()
         } else {
             vec![]
         }
