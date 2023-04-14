@@ -17,15 +17,9 @@ impl ToString for Node<FileData> {
     fn to_string(&self) -> String {
         match self.data.is_dir {
             false => format!("{} ({}, size={:?})", self.name, "file", self.data.size.unwrap()),
-            true => format!("{} ({})", self.name, "dir"),
+            true  => format!("{} ({})", self.name, "dir"),
             
         }
-    }
-}
-
-impl FlatTree<FileData> {
-    fn ls(&self, idx: usize) {
-        self.print_children(idx);
     }
 }
 
@@ -60,37 +54,78 @@ impl FromStr for Input {
     }
 }
 
-fn build_tree(contents: &String, tree: &mut FlatTree<FileData>) {
-    for line in contents.lines() {
-        match line.parse::<Input>().unwrap() {
-            Input::ListedDir { name } => tree.new_here(name, FileData {size: None, is_dir: true}),
-            Input::ListedFile { name, size } => tree.new_here(name, FileData {size: Some(size), is_dir: false}),
-            Input::Cd { to_dir } => {
-                if to_dir=="/" {
-                    tree.to_root()
-                } else if to_dir==".." {
-                    tree.traverse_up()
-                } else {
-                    tree.traverse_into(to_dir)
-                }
-            },
-            _ => ()
+impl FlatTree<FileData> {
+    fn ls(&self, idx: usize) {
+        self.print_children(idx);
+    }
+
+    fn parse_lines(&mut self, contents: &String) {
+        for line in contents.lines() {
+            match line.parse::<Input>().unwrap() {
+                Input::ListedDir { name } => self.new_here(name, FileData {size: None, is_dir: true}),
+                Input::ListedFile { name, size } => self.new_here(name, FileData {size: Some(size), is_dir: false}),
+                Input::Cd { to_dir } => {
+                    if to_dir=="/" {
+                        self.to_root()
+                    } else if to_dir==".." {
+                        self.traverse_up()
+                    } else {
+                        self.traverse_into(to_dir)
+                    }
+                },
+                _ => ()
+            }
         }
     }
+
+    fn try_calc_size(&mut self, idx: usize) {
+        let mut sum = 0;
+        let mut failed_at: Vec<usize> = vec![];
+        for ci in self.nodes[idx].children.iter() {
+            if let None = self.nodes[*ci].data.size {
+                failed_at.push(*ci);
+            } else {
+                sum += self.nodes[*ci].data.size.unwrap();
+            }
+        }
+        if failed_at.len()>0 {
+            for ci in failed_at {
+                self.try_calc_size(ci);
+            }
+            self.try_calc_size(idx); // try again, could probably keep working on partial sum?
+        } else {
+            self.nodes[idx].data.size = Some(sum);
+        }
+    }
+
+}
+
+fn part_1(contents: &String) {
+    let mut tree = FlatTree::<FileData>::new(); // should initialise with root?
+    tree.new_node("/".to_string(), FileData {size: None, is_dir: true}, None);
+    tree.parse_lines(&contents);
+
+    tree.try_calc_size(0);
+
+    let max_size: usize = 100_000;
+    // for n in tree.nodes.iter().filter(|n| n.data.is_dir && n.data.size.unwrap()<max_size) {
+    //     println!("{} {}", n.name, n.data.size.unwrap());
+    // }
+    
+    println!("Sum of at most 100000: {}", tree.nodes.iter()
+                                            .filter(|n| n.data.is_dir)
+                                            .map(|n| n.data.size.unwrap())
+                                            .filter(|&s| s<max_size).sum::<usize>());
 }
 
 static INPUT_PATH : &str = "../input";
 static TEST_INPUT_PATH : &str = "../test_input";
 
 fn main() {
-    let mut tree = FlatTree::<FileData>::new(); // should initialise with root?
-    tree.new_node("/".to_string(), FileData {size: None, is_dir: true}, None);
-
     let tcontents = fs::read_to_string(TEST_INPUT_PATH).expect("Could not read {TEST_INPUT_PATH}");
+    let contents = fs::read_to_string(INPUT_PATH).expect("Could not read {INPUT_PATH}");
 
-    build_tree(&tcontents, &mut tree);
-
-    tree.ls(0);
-    tree.ls(4);
+    part_1(&tcontents);
+    part_1(&contents);
 
 }

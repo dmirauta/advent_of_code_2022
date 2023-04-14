@@ -148,10 +148,10 @@ def solve2(tree):
 test_tree = parse(test_lines)#, debug=True)
 tree = parse(lines)#, debug=True)
 
-print(solve(test_tree))
-print(solve(tree))
+print("Sum of at most 100000:", solve(test_tree))
+print("Sum of at most 100000:", solve(tree))
 
-print()
-print(solve2(test_tree))
-print(solve2(tree))
+# print()
+# print(solve2(test_tree))
+# print(solve2(tree))
 
