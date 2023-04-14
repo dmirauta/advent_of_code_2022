@@ -17,8 +17,10 @@ impl ToString for Node<FileData> {
     fn to_string(&self) -> String {
         match self.data.is_dir {
             false => format!("{} ({}, size={:?})", self.name, "file", self.data.size.unwrap()),
-            true  => format!("{} ({})", self.name, "dir"),
-            
+            true  => match self.data.size {
+                Some(s) => format!("{} ({}, total size={:?})", self.name, "dir", s),
+                None => format!("{} ({})", self.name, "dir"),
+            }
         }
     }
 }
@@ -56,7 +58,7 @@ impl FromStr for Input {
 
 impl FlatTree<FileData> {
     fn _ls(&self, idx: usize) {
-        self._print_children(idx);
+        self._print_children(idx, "  ".to_string(), 0, 3);
     }
 
     fn parse_lines(&mut self, contents: &String) {
@@ -122,7 +124,7 @@ impl FlatTree<FileData> {
 fn part_1(tree: &FlatTree<FileData>) {
     let ans:usize = tree.nodes.iter().filter(|n| n.data.is_dir)
                                      .map(|n| n.data.size.unwrap())
-                                     .filter(|s| *s>(100_000 as usize)).sum();
+                                     .filter(|s| *s<=(100_000 as usize)).sum();
     println!("Sum of at most 100000: {}", ans);
 }
 
@@ -146,6 +148,8 @@ fn main() {
 
     let ttree = FlatTree::<FileData>::from_file(&tcontents);
     let tree = FlatTree::<FileData>::from_file(&contents);
+
+    // ttree._ls(0);
 
     part_1(&ttree);
     part_1(&tree);

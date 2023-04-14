@@ -64,10 +64,12 @@ impl<T: Debug> FlatTree<T> {
 }
 
 impl<T: Debug> FlatTree<T> where Node<T> : ToString {
-    pub fn _print_children(&self, idx: usize) {
-        println!("{}", &self.nodes[idx].name);
-        for &i in &self.nodes[idx].children {
-            println!("  {}", &self.nodes[i].to_string());
+    pub fn _print_children(&self, idx: usize, prefix: String, call_count: usize, max_call_count: usize) {
+        if call_count<max_call_count {
+            println!("{}{}", prefix.repeat(call_count), &self.nodes[idx].to_string());
+            for &i in &self.nodes[idx].children {
+                self._print_children(i, prefix.clone(), call_count+1, max_call_count)
+            }
         }
     }
 }
