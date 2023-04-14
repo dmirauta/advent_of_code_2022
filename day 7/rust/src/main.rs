@@ -83,7 +83,7 @@ impl FlatTree<FileData> {
             return; // bail if already calculated
         }
         let mut sum = 0;
-        let mut failed_at: Vec<usize> = vec![];
+        let mut failed_at: Vec<usize> = Vec::with_capacity(INIT_CHILD_NODE_CAP);
         for ci in self.nodes[idx].children.iter() {
             if let None = self.nodes[*ci].data.size {
                 failed_at.push(*ci);
@@ -115,7 +115,9 @@ impl FlatTree<FileData> {
 }
 
 fn part_1(contents: &String) {
-    let mut tree = FlatTree::<FileData>::new(); // should initialise with root?
+    let n = contents.lines().count();
+
+    let mut tree = FlatTree::<FileData>::new(n); // should initialise with root?
     tree.new_node("/".to_string(), FileData {size: None, is_dir: true}, None);
     tree.parse_lines(&contents);
 

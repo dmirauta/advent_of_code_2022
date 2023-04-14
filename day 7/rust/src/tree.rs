@@ -1,5 +1,7 @@
 use std::fmt::Debug;
 
+pub static INIT_CHILD_NODE_CAP: usize = 8;
+
 #[derive(Debug)]
 pub struct Node<T: Debug> {
     pub idx: usize, // will change if nodes removed, not needed if not backtracking?
@@ -16,8 +18,8 @@ pub struct FlatTree<T: Debug> {
 }
 
 impl<T: Debug> FlatTree<T> {
-    pub fn new() -> FlatTree<T> {
-        FlatTree { nodes: vec![], current:None }
+    pub fn new(initial_capacity: usize) -> FlatTree<T> {
+        FlatTree { nodes: Vec::with_capacity(initial_capacity), current:None }
     }
 
     pub fn new_node(&mut self, name: String, 
@@ -27,7 +29,7 @@ impl<T: Debug> FlatTree<T> {
         if let Some(pidx) = parent {
             self.nodes[pidx].children.push(idx)
         }
-        let children: Vec<usize> = vec![];
+        let children: Vec<usize> = Vec::with_capacity(INIT_CHILD_NODE_CAP);
         self.nodes.push( Node {idx, parent, name, data, children} );
     }
 
