@@ -12,7 +12,7 @@ pub struct Node<T: Debug> {
 #[derive(Debug)]
 pub struct FlatTree<T: Debug> {
     pub nodes: Vec<Node<T>>,
-    pub current: Option<usize> // for traversal, should only point at Inner variant, but not constrained
+    pub current: Option<usize>
 }
 
 impl<T: Debug> FlatTree<T> {
@@ -38,7 +38,7 @@ impl<T: Debug> FlatTree<T> {
     pub fn traverse_into(&mut self, name:String) {
         if let Some(i) = self.current {
             for &ci in &self.nodes[i].children {
-                if self.nodes[ci].name == name { // should check if innner here really
+                if self.nodes[ci].name == name {
                     self.current = Some(ci);
                     break
                 }
@@ -62,7 +62,7 @@ impl<T: Debug> FlatTree<T> {
 }
 
 impl<T: Debug> FlatTree<T> where Node<T> : ToString {
-    pub fn print_children(&self, idx: usize) {
+    pub fn _print_children(&self, idx: usize) {
         println!("{}", &self.nodes[idx].name);
         for &i in &self.nodes[idx].children {
             println!("  {}", &self.nodes[i].to_string());

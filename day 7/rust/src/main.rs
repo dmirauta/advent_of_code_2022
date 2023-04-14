@@ -55,8 +55,8 @@ impl FromStr for Input {
 }
 
 impl FlatTree<FileData> {
-    fn ls(&self, idx: usize) {
-        self.print_children(idx);
+    fn _ls(&self, idx: usize) {
+        self._print_children(idx);
     }
 
     fn parse_lines(&mut self, contents: &String) {
@@ -79,6 +79,9 @@ impl FlatTree<FileData> {
     }
 
     fn try_calc_size(&mut self, idx: usize) {
+        if let Some(_) = self.nodes[idx].data.size {
+            return; // bail if already calculated
+        }
         let mut sum = 0;
         let mut failed_at: Vec<usize> = vec![];
         for ci in self.nodes[idx].children.iter() {
@@ -98,6 +101,17 @@ impl FlatTree<FileData> {
         }
     }
 
+    fn sum_dirs_below(&self, max_size: usize) -> usize {
+        let mut sum = 0;
+        for n in &self.nodes {
+            let s = n.data.size.unwrap();
+            if n.data.is_dir && s<max_size {
+                sum += s;
+            }
+        }
+        sum
+    }
+
 }
 
 fn part_1(contents: &String) {
@@ -105,17 +119,17 @@ fn part_1(contents: &String) {
     tree.new_node("/".to_string(), FileData {size: None, is_dir: true}, None);
     tree.parse_lines(&contents);
 
-    tree.try_calc_size(0);
+    let n = tree.nodes.len();
+    for idx in (0..n).rev() { // calc sizes for (heuristically) outermost dirs first
+        tree.try_calc_size(idx);
+    }
 
-    let max_size: usize = 100_000;
+    // let max_size: usize = 100_000;
     // for n in tree.nodes.iter().filter(|n| n.data.is_dir && n.data.size.unwrap()<max_size) {
     //     println!("{} {}", n.name, n.data.size.unwrap());
     // }
     
-    println!("Sum of at most 100000: {}", tree.nodes.iter()
-                                            .filter(|n| n.data.is_dir)
-                                            .map(|n| n.data.size.unwrap())
-                                            .filter(|&s| s<max_size).sum::<usize>());
+    println!("Sum of at most 100000: {}", tree.sum_dirs_below(100_000));
 }
 
 static INPUT_PATH : &str = "../input";
