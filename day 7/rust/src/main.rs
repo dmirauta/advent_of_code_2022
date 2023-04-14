@@ -101,37 +101,40 @@ impl FlatTree<FileData> {
         }
     }
 
-    fn sum_dirs_below(&self, max_size: usize) -> usize {
-        let mut sum = 0;
-        for n in &self.nodes {
-            let s = n.data.size.unwrap();
-            if n.data.is_dir && s<max_size {
-                sum += s;
-            }
+    fn from_file(contents: &String) -> FlatTree<FileData> {
+        let n = contents.lines().count();
+    
+        let mut tree = FlatTree::<FileData>::new(n); // should initialise with root?
+        tree.new_node("/".to_string(), FileData {size: None, is_dir: true}, None);
+        tree.parse_lines(&contents);
+    
+        // calc dir sizes
+        let n = tree.nodes.len();
+        for idx in (0..n).rev() { // calc sizes for (heuristically) outermost dirs first
+            tree.try_calc_size(idx);
         }
-        sum
+    
+        return tree;
     }
 
 }
 
-fn part_1(contents: &String) {
-    let n = contents.lines().count();
+fn part_1(tree: &FlatTree<FileData>) {
+    let ans:usize = tree.nodes.iter().filter(|n| n.data.is_dir)
+                                     .map(|n| n.data.size.unwrap())
+                                     .filter(|s| *s>(100_000 as usize)).sum();
+    println!("Sum of at most 100000: {}", ans);
+}
 
-    let mut tree = FlatTree::<FileData>::new(n); // should initialise with root?
-    tree.new_node("/".to_string(), FileData {size: None, is_dir: true}, None);
-    tree.parse_lines(&contents);
+static TOTAL_CAPACITY:usize = 70000000;
+static NEEDED_FREE:usize    = 30000000;
 
-    let n = tree.nodes.len();
-    for idx in (0..n).rev() { // calc sizes for (heuristically) outermost dirs first
-        tree.try_calc_size(idx);
-    }
-
-    // let max_size: usize = 100_000;
-    // for n in tree.nodes.iter().filter(|n| n.data.is_dir && n.data.size.unwrap()<max_size) {
-    //     println!("{} {}", n.name, n.data.size.unwrap());
-    // }
-    
-    println!("Sum of at most 100000: {}", tree.sum_dirs_below(100_000));
+fn part_2(tree: &FlatTree<FileData>) {
+    let REQ_CAP = TOTAL_CAPACITY - NEEDED_FREE;
+    let MIN_TO_FREE = tree.nodes[0].data.size.unwrap() - REQ_CAP;
+    let ans = tree.nodes.iter().filter(|n| n.data.is_dir && n.data.size.unwrap()>MIN_TO_FREE)
+                                                        .min_by_key(|n| n.data.size.unwrap()).unwrap();
+    println!("Smallest directory {} to create desired space, with total size {}", ans.name, ans.data.size.unwrap());
 }
 
 static INPUT_PATH : &str = "../input";
@@ -141,7 +144,13 @@ fn main() {
     let tcontents = fs::read_to_string(TEST_INPUT_PATH).expect("Could not read {TEST_INPUT_PATH}");
     let contents = fs::read_to_string(INPUT_PATH).expect("Could not read {INPUT_PATH}");
 
-    part_1(&tcontents);
-    part_1(&contents);
+    let ttree = FlatTree::<FileData>::from_file(&tcontents);
+    let tree = FlatTree::<FileData>::from_file(&contents);
+
+    part_1(&ttree);
+    part_1(&tree);
+
+    part_2(&ttree);
+    part_2(&tree);
 
 }
