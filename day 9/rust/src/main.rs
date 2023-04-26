@@ -44,10 +44,9 @@ impl FromStr for Instruction {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut it = s.chars();
-        let dir: Direction = it.next().unwrap().try_into().unwrap();
-        it.next();
-        let amount: usize = it.next().unwrap().to_string().parse().unwrap();
+        let mut split = s.split_whitespace();
+        let dir: Direction = split.next().unwrap().chars().next().unwrap().try_into().unwrap();
+        let amount: usize = split.next().unwrap().parse().unwrap();
         Ok( Instruction { dir, amount } )
     }
 }
@@ -74,8 +73,8 @@ fn inc_pos((i,j):Pos, dir: Direction) -> Pos {
 }
 
 impl RopeSim {
-    fn new(init:Pos) -> Self {
-        RopeSim { head:init, tail:init, bottom_left:(0,0), top_right:(1,1), tail_trace:HashSet::new()}
+    fn new() -> Self {
+        RopeSim { head:(0,0), tail:(0,0), bottom_left:(0,0), top_right:(1,1), tail_trace:HashSet::new()}
     }
 
     fn calc_extents(&mut self) {
@@ -118,10 +117,12 @@ impl RopeSim {
 
     fn step(&mut self, dir: Direction) {
         self.head = inc_pos(self.head, dir);
-        let (ni, nj) = self.head;
+        
+        let (hi, hj) = self.head;
+        let (ti, tj) = self.tail;
 
-        let delta_i = (ni as i32)-(self.tail.0 as i32);
-        let delta_j = (nj as i32)-(self.tail.1 as i32);
+        let delta_i = hi-ti;
+        let delta_j = hj-tj;
 
         if delta_i.abs()>1 {
             if let Right=dir {
@@ -165,7 +166,7 @@ fn main() {
     // let tcontents = fs::read_to_string(TEST_INPUT_PATH).expect("Could not read {TEST_INPUT_PATH}");
     let contents = fs::read_to_string(INPUT_PATH).expect("Could not read {INPUT_PATH}");
 
-    let mut rope_sim = RopeSim::new((253, 73));
+    let mut rope_sim = RopeSim::new();
 
     let ins: Vec<_> = contents.lines().map(|l| l.parse::<Instruction>().unwrap()).collect();
     
