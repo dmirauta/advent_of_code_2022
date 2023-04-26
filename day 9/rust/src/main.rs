@@ -1,11 +1,12 @@
 use std::{str::FromStr, fs, collections::{HashSet}};
+use itertools::Itertools;
 
 type Pos = (i32, i32);
 
 #[derive(Debug)]
 struct RopeSim {
     head: Pos,
-    tail: Pos,
+    tail: Vec<Pos>,
     bottom_left: Pos,
     top_right: Pos,
     tail_trace: HashSet<Pos>
@@ -72,9 +73,20 @@ fn inc_pos((i,j):Pos, dir: Direction) -> Pos {
     }
 }
 
+fn follow((hi,hj):Pos, h_old:Pos, (ti,tj):Pos) -> Pos {
+    if (hi-ti).abs()>1 || (hj-tj).abs()>1 {
+        h_old
+    } else {
+        (ti, tj)
+    }
+}
+
+static KNOT_SYMBOLS : &str = "123456789";
+
 impl RopeSim {
-    fn new() -> Self {
-        RopeSim { head:(0,0), tail:(0,0), bottom_left:(0,0), top_right:(1,1), tail_trace:HashSet::new()}
+    fn new(length: usize) -> Self {
+        let tail = vec![(0,0); length];
+        RopeSim { head:(0,0), tail, bottom_left:(0,0), top_right:(1,1), tail_trace:HashSet::new()}
     }
 
     fn calc_extents(&mut self) {
@@ -84,18 +96,25 @@ impl RopeSim {
         let (i_max, _) = self.tail_trace.iter().max_by_key(|(i,_)| i).unwrap();
         let (_, j_max) = self.tail_trace.iter().max_by_key(|(_,j)| j).unwrap();
 
-        self.bottom_left = (*i_min, *j_min);
-        self.top_right = (*i_max+1, *j_max+1);
+        let (i,j) = self.head;
+        self.bottom_left = (i.min(*i_min), j.min(*j_min));
+        self.top_right   = (i.max(*i_max), j.max(*j_max));
     }
 
     fn draw_state(&self) {
         let (left, bot) = self.bottom_left;
         let (right, top) = self.top_right;
-        for j in (bot..top).rev() {
-            for i in left..right {
-                let c = if (i,j)==self.head { "H" } 
-                         else if (i,j)==self.tail { "T" } 
-                         else { "." };
+        for j in (bot..=top).rev() {
+            for i in left..=right {
+                let mut c = '.';
+                for (k, tp) in self.tail.iter().enumerate().rev() {
+                    if (i,j)==*tp {
+                        c = KNOT_SYMBOLS.chars().nth(k).unwrap();
+                    }
+                }
+                if (i,j)==self.head {
+                    c = 'H';
+                }
                 print!("{c}");
             }
             println!();
@@ -105,8 +124,8 @@ impl RopeSim {
     fn draw_tail_trace(&self) {
         let (left, bot) = self.bottom_left;
         let (right, top) = self.top_right;
-        for j in (bot..top).rev() {
-            for i in left..right {
+        for j in (bot..=top).rev() {
+            for i in left..=right {
                 let c = if self.tail_trace.contains(&(i,j)) { "#" }
                          else { "." };
                 print!("{c}");
@@ -116,31 +135,18 @@ impl RopeSim {
     }
 
     fn step(&mut self, dir: Direction) {
+        let h_old = self.head;
         self.head = inc_pos(self.head, dir);
         
-        let (hi, hj) = self.head;
-        let (ti, tj) = self.tail;
-
-        let delta_i = hi-ti;
-        let delta_j = hj-tj;
-
-        if delta_i.abs()>1 {
-            if let Right=dir {
-                self.tail = inc_pos(self.head, Left);
-            } else if let Left=dir {
-                self.tail = inc_pos(self.head, Right);
-            }
+        let mut t_old = self.tail[0];
+        self.tail[0] = follow(self.head, h_old, self.tail[0]);
+        for i in 1..self.tail.len() {
+            let t = self.tail[i];
+            self.tail[i] = follow(self.tail[i-1], t_old, self.tail[i]);
+            t_old = t;
         }
 
-        if delta_j.abs()>1 {
-            if let Up=dir {
-                self.tail = inc_pos(self.head, Down);
-            } else if let Down=dir {
-                self.tail = inc_pos(self.head, Up);
-            }
-        }
-
-        self.tail_trace.insert(self.tail);
+        self.tail_trace.insert(*self.tail.last().unwrap());
     }
 
     fn play(&mut self, ins: Vec<Instruction>, visualise: bool) {
@@ -150,7 +156,9 @@ impl RopeSim {
             for _ in 0..amount {
                 self.step(dir);
                 if visualise {
+                    self.calc_extents();
                     self.draw_state();
+                    // println!("{:?}", self.tail.iter().format(" "));
                     println!();
                 }
             }
@@ -160,18 +168,18 @@ impl RopeSim {
 }
 
 static INPUT_PATH : &str = "../input";
-// static TEST_INPUT_PATH : &str = "../test_input";
+static TEST_INPUT_PATH : &str = "../test_input";
 
 fn main() {
-    // let tcontents = fs::read_to_string(TEST_INPUT_PATH).expect("Could not read {TEST_INPUT_PATH}");
-    let contents = fs::read_to_string(INPUT_PATH).expect("Could not read {INPUT_PATH}");
+    let contents = fs::read_to_string(TEST_INPUT_PATH).expect("Could not read {TEST_INPUT_PATH}");
+    // let contents = fs::read_to_string(INPUT_PATH).expect("Could not read {INPUT_PATH}");
 
-    let mut rope_sim = RopeSim::new();
+    let mut rope_sim = RopeSim::new(9);
 
     let ins: Vec<_> = contents.lines().map(|l| l.parse::<Instruction>().unwrap()).collect();
     
-    rope_sim.play(ins, false);
-    rope_sim.draw_tail_trace();
+    rope_sim.play(ins, true);
+    // rope_sim.draw_tail_trace();
 
     dbg!(rope_sim.tail_trace.len());
 
