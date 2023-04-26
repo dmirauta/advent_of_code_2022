@@ -1,4 +1,4 @@
-use std::{str::FromStr, fs, collections::{HashMap, HashSet}};
+use std::{str::FromStr, fs, collections::{HashSet}};
 
 type Pos = (usize, usize);
 
@@ -65,21 +65,24 @@ impl ToString for Instruction {
 
 fn inc_pos((i,j):Pos, dir: Direction, bounds: Pos) -> Pos {
     match dir {
-        Left  => (i.checked_sub(1).unwrap_or(i), 
-                  j),
-        Right => (if i+1<bounds.0 {i+1} else {i}, 
-                  j),
-        Up    => (i, 
-                  if j+1<bounds.1 {j+1} else {j}),
-        Down  => (i, 
-                  j.checked_sub(1).unwrap_or(j))
+        Left  => (i.checked_sub(1).unwrap_or(i), j),
+        Right => (i+1, j),
+        Up    => (i, j+1),
+        Down  => (i, j.checked_sub(1).unwrap_or(j))
     }
 }
 
 impl RopeSim {
-    fn new(head:Pos, tail:Pos, size:Pos) -> Self {
+    fn new(head:Pos, tail:Pos) -> Self {
         let tail_trace: HashSet<Pos> = HashSet::new();
+        let size: Pos = (1,1);
         RopeSim { head, tail, size, tail_trace }
+    }
+
+    fn calc_size(&mut self) {
+        let (i_max,_) = self.tail_trace.iter().max_by_key(|(i,_)| i).unwrap();
+        let (_, j_max) = self.tail_trace.iter().max_by_key(|(_,j)| j).unwrap();
+        self.size = (*i_max, *j_max);
     }
 
     fn draw_state(&self) {
@@ -143,19 +146,20 @@ impl RopeSim {
                 }
             }
         }
+        self.calc_size();
     }
 }
 
 static INPUT_PATH : &str = "../input";
-static TEST_INPUT_PATH : &str = "../test_input";
+// static TEST_INPUT_PATH : &str = "../test_input";
 
 fn main() {
-    let tcontents = fs::read_to_string(TEST_INPUT_PATH).expect("Could not read {TEST_INPUT_PATH}");
-    // let contents = fs::read_to_string(INPUT_PATH).expect("Could not read {INPUT_PATH}");
+    // let tcontents = fs::read_to_string(TEST_INPUT_PATH).expect("Could not read {TEST_INPUT_PATH}");
+    let contents = fs::read_to_string(INPUT_PATH).expect("Could not read {INPUT_PATH}");
 
-    let mut rope_sim = RopeSim::new((0,0), (0,0), (6, 5));
+    let mut rope_sim = RopeSim::new((0,0), (0,0));
 
-    let ins: Vec<_> = tcontents.lines().map(|l| l.parse::<Instruction>().unwrap()).collect();
+    let ins: Vec<_> = contents.lines().map(|l| l.parse::<Instruction>().unwrap()).collect();
     
     rope_sim.play(ins, false);
     rope_sim.draw_tail_trace();
