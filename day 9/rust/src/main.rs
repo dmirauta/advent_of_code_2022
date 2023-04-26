@@ -73,9 +73,15 @@ fn inc_pos((i,j):Pos, dir: Direction) -> Pos {
     }
 }
 
-fn follow((hi,hj):Pos, h_old:Pos, (ti,tj):Pos) -> Pos {
-    if (hi-ti).abs()>1 || (hj-tj).abs()>1 {
-        h_old
+fn follow((hi,hj):Pos, (ti,tj):Pos) -> Pos {
+    let (di, dj) = (hi-ti, hj-tj);
+    if di.abs()>1 && dj.abs()==0 {        // same row
+        (ti + di.signum(), tj)
+    } else if di.abs()==0 && dj.abs()>1 { // same column
+        (ti, tj + dj.signum())
+    } else if  di.abs()>1 && dj.abs()>=1  // knights move
+           ||  dj.abs()>1 && di.abs()>=1 {
+        (ti + di.signum(), tj + dj.signum())
     } else {
         (ti, tj)
     }
@@ -90,15 +96,21 @@ impl RopeSim {
     }
 
     fn calc_extents(&mut self) {
-        let (i_min, _) = self.tail_trace.iter().min_by_key(|(i,_)| i).unwrap();
-        let (_, j_min) = self.tail_trace.iter().min_by_key(|(_,j)| j).unwrap();
+        let (ti_min, _) = *self.tail_trace.iter().min_by_key(|(i,_)| i).unwrap();
+        let (_, tj_min) = *self.tail_trace.iter().min_by_key(|(_,j)| j).unwrap();
 
-        let (i_max, _) = self.tail_trace.iter().max_by_key(|(i,_)| i).unwrap();
-        let (_, j_max) = self.tail_trace.iter().max_by_key(|(_,j)| j).unwrap();
+        let (ti_max, _) = *self.tail_trace.iter().max_by_key(|(i,_)| i).unwrap();
+        let (_, tj_max) = *self.tail_trace.iter().max_by_key(|(_,j)| j).unwrap();
+
+        let (i_min, _) = *self.tail.iter().min_by_key(|(i,_)| i).unwrap();
+        let (_, j_min) = *self.tail.iter().min_by_key(|(_,j)| j).unwrap();
+
+        let (i_max, _) = *self.tail.iter().max_by_key(|(i,_)| i).unwrap();
+        let (_, j_max) = *self.tail.iter().max_by_key(|(_,j)| j).unwrap();
 
         let (i,j) = self.head;
-        self.bottom_left = (i.min(*i_min), j.min(*j_min));
-        self.top_right   = (i.max(*i_max), j.max(*j_max));
+        self.bottom_left = (i.min(i_min).min(ti_min), j.min(j_min).min(tj_min));
+        self.top_right   = (i.max(i_max).max(ti_max), j.max(j_max).max(tj_max));
     }
 
     fn draw_state(&self) {
@@ -124,26 +136,21 @@ impl RopeSim {
     fn draw_tail_trace(&self) {
         let (left, bot) = self.bottom_left;
         let (right, top) = self.top_right;
+        let pos_to_char = |pos| if self.tail_trace.contains(&pos) { '#' } else { '.' };
         for j in (bot..=top).rev() {
             for i in left..=right {
-                let c = if self.tail_trace.contains(&(i,j)) { "#" }
-                         else { "." };
-                print!("{c}");
+                print!("{}", pos_to_char((i,j)));
             }
             println!();
         }
     }
 
     fn step(&mut self, dir: Direction) {
-        let h_old = self.head;
         self.head = inc_pos(self.head, dir);
         
-        let mut t_old = self.tail[0];
-        self.tail[0] = follow(self.head, h_old, self.tail[0]);
+        self.tail[0] = follow(self.head, self.tail[0]);
         for i in 1..self.tail.len() {
-            let t = self.tail[i];
-            self.tail[i] = follow(self.tail[i-1], t_old, self.tail[i]);
-            t_old = t;
+            self.tail[i] = follow(self.tail[i-1], self.tail[i]);
         }
 
         self.tail_trace.insert(*self.tail.last().unwrap());
@@ -169,18 +176,23 @@ impl RopeSim {
 
 static INPUT_PATH : &str = "../input";
 static TEST_INPUT_PATH : &str = "../test_input";
+static TEST_INPUT_PATH2 : &str = "../test_input2";
 
 fn main() {
-    let contents = fs::read_to_string(TEST_INPUT_PATH).expect("Could not read {TEST_INPUT_PATH}");
-    // let contents = fs::read_to_string(INPUT_PATH).expect("Could not read {INPUT_PATH}");
+    // let tcontents = fs::read_to_string(TEST_INPUT_PATH).expect("Could not read {TEST_INPUT_PATH}");
+    // let tcontents2 = fs::read_to_string(TEST_INPUT_PATH2).expect("Could not read {TEST_INPUT_PATH2}");
+    let contents = fs::read_to_string(INPUT_PATH).expect("Could not read {INPUT_PATH}");
 
     let mut rope_sim = RopeSim::new(9);
 
     let ins: Vec<_> = contents.lines().map(|l| l.parse::<Instruction>().unwrap()).collect();
     
-    rope_sim.play(ins, true);
+    rope_sim.play(ins, false);
     // rope_sim.draw_tail_trace();
 
     dbg!(rope_sim.tail_trace.len());
+    // println!("{:?}", rope_sim.tail_trace.iter().format(" "));
+    // dbg!(rope_sim.bottom_left);
+    // dbg!(rope_sim.top_right);
 
 }
