@@ -1,12 +1,13 @@
 use std::{str::FromStr, fs, collections::{HashSet}};
 
-type Pos = (usize, usize);
+type Pos = (i32, i32);
 
 #[derive(Debug)]
 struct RopeSim {
     head: Pos,
     tail: Pos,
-    size: Pos,
+    bottom_left: Pos,
+    top_right: Pos,
     tail_trace: HashSet<Pos>
 }
 
@@ -54,40 +55,45 @@ impl FromStr for Instruction {
 impl ToString for Instruction {
     fn to_string(&self) -> String {
         let c = match self.dir {
-            Left => 'L',
+            Left  => 'L',
             Right => 'R',
-            Down => 'D',
-            Up => 'U'
+            Down  => 'D',
+            Up    => 'U'
         };
         format!("{} {}", c, self.amount)
     }
 }
 
-fn inc_pos((i,j):Pos, dir: Direction, bounds: Pos) -> Pos {
+fn inc_pos((i,j):Pos, dir: Direction) -> Pos {
     match dir {
-        Left  => (i.checked_sub(1).unwrap_or(i), j),
+        Left  => (i-1, j),
         Right => (i+1, j),
         Up    => (i, j+1),
-        Down  => (i, j.checked_sub(1).unwrap_or(j))
+        Down  => (i, j-1)
     }
 }
 
 impl RopeSim {
-    fn new(head:Pos, tail:Pos) -> Self {
-        let tail_trace: HashSet<Pos> = HashSet::new();
-        let size: Pos = (1,1);
-        RopeSim { head, tail, size, tail_trace }
+    fn new(init:Pos) -> Self {
+        RopeSim { head:init, tail:init, bottom_left:(0,0), top_right:(1,1), tail_trace:HashSet::new()}
     }
 
-    fn calc_size(&mut self) {
-        let (i_max,_) = self.tail_trace.iter().max_by_key(|(i,_)| i).unwrap();
+    fn calc_extents(&mut self) {
+        let (i_min, _) = self.tail_trace.iter().min_by_key(|(i,_)| i).unwrap();
+        let (_, j_min) = self.tail_trace.iter().min_by_key(|(_,j)| j).unwrap();
+
+        let (i_max, _) = self.tail_trace.iter().max_by_key(|(i,_)| i).unwrap();
         let (_, j_max) = self.tail_trace.iter().max_by_key(|(_,j)| j).unwrap();
-        self.size = (*i_max, *j_max);
+
+        self.bottom_left = (*i_min, *j_min);
+        self.top_right = (*i_max+1, *j_max+1);
     }
 
     fn draw_state(&self) {
-        for j in (0..self.size.1).rev() {
-            for i in 0..self.size.0 {
+        let (left, bot) = self.bottom_left;
+        let (right, top) = self.top_right;
+        for j in (bot..top).rev() {
+            for i in left..right {
                 let c = if (i,j)==self.head { "H" } 
                          else if (i,j)==self.tail { "T" } 
                          else { "." };
@@ -98,8 +104,10 @@ impl RopeSim {
     }
 
     fn draw_tail_trace(&self) {
-        for j in (0..self.size.1).rev() {
-            for i in 0..self.size.0 {
+        let (left, bot) = self.bottom_left;
+        let (right, top) = self.top_right;
+        for j in (bot..top).rev() {
+            for i in left..right {
                 let c = if self.tail_trace.contains(&(i,j)) { "#" }
                          else { "." };
                 print!("{c}");
@@ -109,7 +117,7 @@ impl RopeSim {
     }
 
     fn step(&mut self, dir: Direction) {
-        self.head = inc_pos(self.head, dir, self.size);
+        self.head = inc_pos(self.head, dir);
         let (ni, nj) = self.head;
 
         let delta_i = (ni as i32)-(self.tail.0 as i32);
@@ -117,17 +125,17 @@ impl RopeSim {
 
         if delta_i.abs()>1 {
             if let Right=dir {
-                self.tail = inc_pos(self.head, Left, self.size);
+                self.tail = inc_pos(self.head, Left);
             } else if let Left=dir {
-                self.tail = inc_pos(self.head, Right, self.size);
+                self.tail = inc_pos(self.head, Right);
             }
         }
 
         if delta_j.abs()>1 {
             if let Up=dir {
-                self.tail = inc_pos(self.head, Down, self.size);
+                self.tail = inc_pos(self.head, Down);
             } else if let Down=dir {
-                self.tail = inc_pos(self.head, Up, self.size);
+                self.tail = inc_pos(self.head, Up);
             }
         }
 
@@ -146,7 +154,7 @@ impl RopeSim {
                 }
             }
         }
-        self.calc_size();
+        self.calc_extents();
     }
 }
 
@@ -157,7 +165,7 @@ fn main() {
     // let tcontents = fs::read_to_string(TEST_INPUT_PATH).expect("Could not read {TEST_INPUT_PATH}");
     let contents = fs::read_to_string(INPUT_PATH).expect("Could not read {INPUT_PATH}");
 
-    let mut rope_sim = RopeSim::new((0,0), (0,0));
+    let mut rope_sim = RopeSim::new((253, 73));
 
     let ins: Vec<_> = contents.lines().map(|l| l.parse::<Instruction>().unwrap()).collect();
     
