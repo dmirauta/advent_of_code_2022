@@ -1,5 +1,4 @@
-use std::{str::FromStr, fs, collections::{HashSet}};
-use itertools::Itertools;
+use std::{str::FromStr, fs, collections::HashSet};
 
 type Pos = (i32, i32);
 
@@ -35,6 +34,24 @@ impl TryFrom<char> for Direction {
     }
 }
 
+impl From<Direction> for char {
+    fn from(value: Direction) -> Self {
+        match value {
+            Left  => 'L',
+            Right => 'R',
+            Down  => 'D',
+            Up    => 'U'
+        }
+    }
+}
+
+impl ToString for Direction {
+    fn to_string(&self) -> String {
+        let c: char = (*self).into();
+        c.to_string()
+    }
+}
+
 #[derive(Debug)]
 struct Instruction {
     dir: Direction,
@@ -54,13 +71,7 @@ impl FromStr for Instruction {
 
 impl ToString for Instruction {
     fn to_string(&self) -> String {
-        let c = match self.dir {
-            Left  => 'L',
-            Right => 'R',
-            Down  => 'D',
-            Up    => 'U'
-        };
-        format!("{} {}", c, self.amount)
+        format!("{} {}", self.dir.to_string(), self.amount)
     }
 }
 
