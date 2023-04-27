@@ -22,25 +22,40 @@ impl FromStr for Instruction {
                 return Ok(Noop);
             }
         }
-        return Err("parse failure".to_string());
+        return Err("parse failure, invalid instruction name?".to_string());
     }
 }
 
 struct Emulator {
     register: i32,
     cycle: usize,
-    strength_sum: i32
+    strength_sum: i32,
+    debug: bool
 }
 
 impl Emulator {
     
-    fn new() -> Self {
-        Emulator { register: 1, cycle: 0, strength_sum:0 }
+    fn new(debug: bool) -> Self {
+        Emulator { register: 1, cycle: 1, strength_sum:0, debug }
+    }
+
+    fn crt(&self) {
+        let screen_pos: usize = (self.cycle-1)%40;
+
+        let c = if (self.register-1..=self.register+1).contains(&(screen_pos as i32)) 
+                       { '#' } else { '.' };
+
+        if self.debug {
+            println!("CRT prints {c} at {}", screen_pos);
+        } else {
+            print!("{c}");
+            if self.cycle%40 == 0 { println!(); }
+        }
     }
 
     fn cycle(&mut self) {
-        self.cycle += 1;
 
+        // part 1
         if self.cycle>=20 {
             let offset_cycle = self.cycle - 20;
             if offset_cycle%40==0 {
@@ -49,24 +64,37 @@ impl Emulator {
             }
         }
 
+        // part 2
+        self.crt();
+
+        self.cycle += 1;
     }
 
     fn add(&mut self, v: i32) {
+        if self.debug { println!("begin executing add {v}"); }
         self.cycle();
         self.cycle();
         self.register += v;
+        if self.debug { println!("finish executing add (Register is now {})", self.register); }
+    }
+
+    fn noop(&mut self) {
+        if self.debug { println!("begin executing noop"); }
+        self.cycle();
     }
 
     fn exec(&mut self, ins: Instruction) {
         match ins {
             Addx(v) => self.add(v),
-            Noop         => self.cycle()
+            Noop         => self.noop()
         }
     }
 
-    fn run(&mut self, inss: Vec<Instruction>) {
-        for ins in inss {
+    fn run(&mut self, prog: Vec<Instruction>) {
+        for ins in prog {
+            if self.debug { print!("Start cycle {}: ", self.cycle); }
             self.exec(ins);
+            if self.debug { println!(); }
         }
     }
 
@@ -82,9 +110,9 @@ mod tests {
     #[test]
     fn part_1() {
         let tcontents = fs::read_to_string(TEST_INPUT_PATH).expect("Could not read {TEST_INPUT_PATH}");
-        let instructions: Vec<Instruction> = tcontents.lines().map(|l| l.parse().unwrap()).collect();
-        let mut emu = Emulator::new();
-        emu.run(instructions);
+        let prog: Vec<Instruction> = tcontents.lines().map(|l| l.parse().unwrap()).collect();
+        let mut emu = Emulator::new(false);
+        emu.run(prog);
         assert_eq!(emu.strength_sum, 13140);
     }
 }
@@ -92,11 +120,10 @@ mod tests {
 fn main() {
     let contents = fs::read_to_string(INPUT_PATH).expect("Could not read {INPUT_PATH}");
 
-    let instructions: Vec<Instruction> = contents.lines().map(|l| l.parse().unwrap()).collect();
+    let prog: Vec<Instruction> = contents.lines().map(|l| l.parse().unwrap()).collect();
 
-    let mut emu = Emulator::new();
+    let mut emu = Emulator::new(false);
 
-    emu.run(instructions);
+    emu.run(prog);
 
-    dbg!(emu.strength_sum);
 }
