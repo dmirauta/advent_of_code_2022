@@ -15,11 +15,11 @@ and the location that should get the best signal (`E`). Your current
 position (`S`) has elevation `a`, and the location that should get the
 best signal (`E`) has elevation `z`.
 
-You\'d like to reach `E`, but to save energy, you should do it in *as
-few steps as possible*. During each step, you can move exactly one
+You\'d like to reach `E`, but to save energy, you should do it in _as
+few steps as possible_. During each step, you can move exactly one
 square up, down, left, or right. To avoid needing to get out your
-climbing gear, the elevation of the destination square can be *at most
-one higher* than the elevation of your current square; that is, if your
+climbing gear, the elevation of the destination square can be _at most
+one higher_ than the elevation of your current square; that is, if your
 current elevation is `m`, you could step to elevation `n`, but not to
 elevation `o`. (This also means that the elevation of the destination
 square can be much lower than the elevation of your current square.)
@@ -48,18 +48,12 @@ square moving up (`^`), down (`v`), left (`<`), or right (`>`). The
 location that should get the best signal is still `E`, and `.` marks
 unvisited squares.
 
-This path reaches the goal in *`31`* steps, the fewest possible.
+This path reaches the goal in _`31`_ steps, the fewest possible.
 
-*What is the fewest steps required to move from your current position to
-the location that should get the best signal?*
+_What is the fewest steps required to move from your current position to
+the location that should get the best signal?_
 
 To begin, [get your puzzle
-input](https://adventofcode.com/2022/day/12/input){target="_blank"}.
+input](https://adventofcode.com/2022/day/12/input){target="\_blank"}.
 
 Answer:
-
-You can also [\[Share[on
-[Twitter](https://twitter.com/intent/tweet?text=%22Hill+Climbing+Algorithm%22+%2D+Day+12+%2D+Advent+of+Code+2022&url=https%3A%2F%2Fadventofcode%2Ecom%2F2022%2Fday%2F12&related=ericwastl&hashtags=AdventOfCode){target="_blank"}
-[Mastodon](javascript:void(0);){onclick="var mastodon_instance=prompt('Mastodon Instance / Server Name?'); if(typeof mastodon_instance==='string' && mastodon_instance.length){this.href='https://'+mastodon_instance+'/share?text=%22Hill+Climbing+Algorithm%22+%2D+Day+12+%2D+Advent+of+Code+2022+%23AdventOfCode+https%3A%2F%2Fadventofcode%2Ecom%2F2022%2Fday%2F12'}else{return false;}"
-target="_blank"}]{.share-content}\]]{.share} this puzzle.
-:::
