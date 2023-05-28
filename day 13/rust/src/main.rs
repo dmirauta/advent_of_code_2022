@@ -15,6 +15,15 @@ enum Node {
     Value(u64),
 }
 
+impl Clone for Node {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Sublist(sl) => Self::Sublist(Vec::from_iter(sl.iter().map(|n| n.clone()))),
+            Self::Value(v) => Self::Value(v.clone()),
+        }
+    }
+}
+
 impl Display for Node {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -95,17 +104,37 @@ impl PartialOrd for Node {
     }
 }
 
-fn part_1(contents: &String) -> usize {
-    contents.split("\n\n").enumerate().fold(0, |s, (i, input)| {
-        let mut sp = input.split("\n");
-        let left: Node = sp.next().unwrap().trim().parse().unwrap();
-        let right: Node = sp.next().unwrap().trim().parse().unwrap();
-        if left < right {
-            s + i + 1
-        } else {
-            s
-        }
-    })
+fn part_1(packets: &Vec<Node>) -> usize {
+    packets
+        .chunks(2)
+        .enumerate()
+        .fold(0, |s, (i, packet_slice)| {
+            if packet_slice[0] < packet_slice[1] {
+                s + i + 1
+            } else {
+                s
+            }
+        })
+}
+
+fn part_2(packets: &mut Vec<Node>) -> usize {
+    let divider_1 = "[[2]]".parse::<Node>().unwrap();
+    let divider_2 = "[[6]]".parse::<Node>().unwrap();
+    packets.push(divider_1.clone());
+    packets.push(divider_2.clone());
+    packets.sort();
+    let (i1, _) = packets
+        .iter()
+        .enumerate()
+        .find(|(_, n)| **n == divider_1)
+        .unwrap();
+    let (i2, _) = packets
+        .iter()
+        .enumerate()
+        .find(|(_, n)| **n == divider_2)
+        .unwrap();
+
+    (i1 + 1) * (i2 + 1)
 }
 
 static TEST_INPUT_PATH: &str = "../test_input";
@@ -114,5 +143,13 @@ static INPUT_PATH: &str = "../input";
 fn main() {
     // let contents = fs::read_to_string(TEST_INPUT_PATH).expect("Could not read {TEST_INPUT_PATH}");
     let contents = fs::read_to_string(INPUT_PATH).expect("Could not read {INPUT_PATH}");
-    dbg!(part_1(&contents));
+
+    let mut packets: Vec<_> = contents
+        .replace("\n\n", "\n")
+        .lines()
+        .filter_map(|l| l.trim().parse::<Node>().ok())
+        .collect();
+
+    dbg!(part_1(&packets));
+    dbg!(part_2(&mut packets));
 }
