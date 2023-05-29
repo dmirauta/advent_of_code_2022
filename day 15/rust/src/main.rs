@@ -4,7 +4,7 @@ use std::{collections::HashSet, fs};
 #[macro_use]
 extern crate lazy_static;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct Point {
     x: i32,
     y: i32,
@@ -74,6 +74,36 @@ fn part_1(data: &Vec<SensorData>, row: i32) {
     dbg!(free_positions.len() - beacons_in_row.len());
 }
 
+fn part_2_row_scan(data: &Vec<SensorData>, row: i32, max_coord: i32) -> HashSet<i32> {
+    let mut possible_positions: HashSet<i32> = HashSet::from_iter(0..=max_coord);
+
+    for d in data {
+        let partial_dist = (row - d.sensor_pos.y).abs(); // distance to sensor projected to row
+        for i in 0..=d.empty_zone_radius - partial_dist {
+            possible_positions.remove(&(d.sensor_pos.x - i));
+            possible_positions.remove(&(d.sensor_pos.x + i));
+        }
+    }
+
+    possible_positions
+}
+
+fn part_2(data: &Vec<SensorData>, max_coord: i32) {
+    let mut possible_positions: HashSet<Point> = HashSet::new();
+    for row in 0..=max_coord {
+        for x in part_2_row_scan(&data, row, max_coord) {
+            possible_positions.insert(Point { x, y: row });
+        }
+    }
+
+    assert!(possible_positions.len() == 1);
+
+    let beacon_pos = possible_positions.drain().next().unwrap();
+    let tunning_frequency = beacon_pos.x * 4_000_000 + beacon_pos.y;
+
+    dbg!(tunning_frequency);
+}
+
 static TEST_INPUT_PATH: &str = "../test_input";
 static INPUT_PATH: &str = "../input";
 
@@ -84,6 +114,9 @@ fn main() {
     let tdata = parse(&tcontents);
     let data = parse(&contents);
 
-    part_1(&tdata, 10);
-    part_1(&data, 2_000_000);
+    // part_1(&tdata, 10);
+    // part_1(&data, 2_000_000);
+
+    part_2(&tdata, 20);
+    part_2(&data, 4_000_000);
 }
