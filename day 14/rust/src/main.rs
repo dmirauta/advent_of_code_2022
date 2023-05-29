@@ -141,12 +141,10 @@ struct Grid {
     tl: Point,
     /// bottom right
     br: Point,
-    height: i32,
-    width: i32,
 }
 
 impl Grid {
-    fn from_walls(walls: Vec<Path>) -> Grid {
+    fn from_walls(walls: &Vec<Path>) -> Grid {
         let source = Point { x: 500, y: 0 };
         let tl = Path::from(
             walls
@@ -163,9 +161,6 @@ impl Grid {
         )
         .bb_br(source);
 
-        let height = 1 + br.x - tl.x;
-        let width = 1 + br.y - tl.y;
-
         let mut spaces: HashMap<Point, GridSpace> = HashMap::new();
 
         for wall in walls {
@@ -177,62 +172,67 @@ impl Grid {
             }
         }
 
-        Grid {
-            spaces,
-            height,
-            width,
-            tl,
-            br,
-        }
+        Grid { spaces, tl, br }
     }
 
     fn is_in_bounds(&self, pos: Point) -> bool {
         self.tl.x <= pos.x && pos.x < self.br.x && self.tl.y <= pos.y && pos.y < self.br.y
     }
 
-    fn available(&self, pos: Point) -> bool {
+    fn available(&self, pos: Point, part2: bool) -> bool {
+        if part2 && pos.y == self.br.y + 2 {
+            return false;
+        }
         if let Some(gs) = self.spaces.get(&pos) {
             return *gs == GridSpace::Air;
         }
         true
     }
 
-    fn next_pos(&self, previous_pos: Point) -> Option<Point> {
+    fn next_pos(&self, previous_pos: Point, part2: bool) -> Option<Point> {
         let down = Point::new(previous_pos.x, previous_pos.y + 1);
-        if self.available(down) {
+        if self.available(down, part2) {
             return Some(down);
         }
         let left = Point::new(previous_pos.x - 1, previous_pos.y + 1);
-        if self.available(left) {
+        if self.available(left, part2) {
             return Some(left);
         }
         let right = Point::new(previous_pos.x + 1, previous_pos.y + 1);
-        if self.available(right) {
+        if self.available(right, part2) {
             return Some(right);
         }
         None
     }
 
-    fn drop_grain(&mut self) -> bool {
+    fn drop_grain(&mut self, part2: bool) -> bool {
         let mut grain_pos = Point { x: 500, y: 0 };
 
-        while let Some(new_pos) = self.next_pos(grain_pos) {
+        while let Some(new_pos) = self.next_pos(grain_pos, part2) {
             grain_pos = new_pos;
-            if !self.is_in_bounds(grain_pos) {
+            if !part2 && !self.is_in_bounds(grain_pos) {
                 return false;
             }
         }
 
+        if grain_pos.x == 500 && grain_pos.y == 0 && self.spaces.get(&grain_pos).is_some() {
+            return false;
+        }
+
         // dbg!(grain_pos);
 
-        // not cheching for original position being occupied
         self.spaces.entry(grain_pos).or_insert(GridSpace::Sand);
         true
     }
 
     fn vis(&self) {
-        for y in self.tl.y..=self.br.y {
-            for x in self.tl.x..=self.br.x {
+        let left = self.spaces.iter().map(|(k, _)| k.x).min().unwrap();
+        let right = self.spaces.iter().map(|(k, _)| k.x).max().unwrap();
+        let top = self.spaces.iter().map(|(k, _)| k.y).min().unwrap();
+        let bot = self.spaces.iter().map(|(k, _)| k.y).max().unwrap();
+
+        for y in top..=bot {
+            for x in left..=right {
                 if let Some(gs) = self.spaces.get(&Point { x, y }) {
                     match gs {
                         GridSpace::Air => print!("."),
@@ -247,12 +247,11 @@ impl Grid {
         }
     }
 
-    fn part_1(&mut self) {
+    fn part(&mut self, part2: bool) {
         let mut i = 0;
-        while self.drop_grain() {
+        while self.drop_grain(part2) {
             i += 1;
         }
-        self.vis();
         dbg!(i);
     }
 }
@@ -265,7 +264,12 @@ fn main() {
     let contents = fs::read_to_string(INPUT_PATH).expect("Could not read {INPUT_PATH}");
 
     let walls: Vec<Path> = contents.lines().map(|line| line.parse().unwrap()).collect();
-    let mut grid = Grid::from_walls(walls);
 
-    grid.part_1();
+    let mut grid = Grid::from_walls(&walls);
+    grid.part(false);
+    grid.vis();
+
+    let mut grid2 = Grid::from_walls(&walls);
+    grid2.part(true);
+    // grid.vis();
 }
