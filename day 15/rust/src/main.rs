@@ -11,7 +11,7 @@ struct Point {
 }
 
 impl Point {
-    fn lev_dist_to(&self, other: Point) -> i32 {
+    fn dist_to(&self, other: Point) -> i32 {
         (self.x - other.x).abs() + (self.y - other.y).abs()
     }
 }
@@ -46,7 +46,7 @@ fn parse(contents: &String) -> Vec<SensorData> {
             data.push(SensorData {
                 sensor_pos,
                 beacon_pos,
-                empty_zone_radius: sensor_pos.lev_dist_to(beacon_pos),
+                empty_zone_radius: sensor_pos.dist_to(beacon_pos),
             });
         }
     }
