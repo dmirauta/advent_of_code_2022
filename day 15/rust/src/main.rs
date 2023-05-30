@@ -1,4 +1,3 @@
-use itertools::iproduct;
 use regex::Regex;
 use std::{collections::HashSet, fs};
 
@@ -23,12 +22,6 @@ struct SensorData {
     /// nearest detected beacon, multiple sensors can point to it
     beacon_pos: Point,
     empty_zone_radius: i32,
-}
-
-impl SensorData {
-    fn is_in_empty_zone(&self, pos: Point) -> bool {
-        self.sensor_pos.lev_dist_to(pos) <= self.empty_zone_radius
-    }
 }
 
 fn parse(contents: &String) -> Vec<SensorData> {
@@ -74,7 +67,7 @@ fn part_1(data: &Vec<SensorData>, row: i32) {
     for d in data {
         let partial_dist = (row - d.sensor_pos.y).abs(); // distance to sensor projected to row
         for i in 0..=d.empty_zone_radius - partial_dist {
-            free_positions.insert(d.sensor_pos.x - i);
+            free_positions.insert(d.sensor_pos.x - i); // could just store ranges...
             free_positions.insert(d.sensor_pos.x + i);
         }
     }
@@ -83,17 +76,34 @@ fn part_1(data: &Vec<SensorData>, row: i32) {
 }
 
 fn part_2(data: &Vec<SensorData>, max_coord: i32) {
-    let is_in_empty_zone = |(x, y)| {
-        data.iter()
-            .find(|sd| sd.is_in_empty_zone(Point { x, y }))
-            .is_some()
-    };
+    let mut beacon_x = 0;
+    let mut beacon_y = 0;
+    for y in 0..=max_coord {
+        let empty_ranges: Vec<_> = Vec::from_iter(data.iter().map(|d| {
+            let partial_dist = (y - d.sensor_pos.y).abs(); // distance to sensor projected to row
+            let remaining_dist = d.empty_zone_radius - partial_dist;
+            d.sensor_pos.x - remaining_dist..=d.sensor_pos.x + remaining_dist
+        }));
 
-    let (beacon_x, beacon_y) = iproduct!(0..=max_coord, 0..=max_coord)
-        .find(|pt| !is_in_empty_zone(*pt))
-        .unwrap();
+        let mut x = 0;
+        loop {
+            if let Some(r) = empty_ranges.iter().find(|r| r.contains(&x)) {
+                x = *r.end() + 1; // everything in the range clearly empty, check after end
+            } else {
+                if x <= max_coord {
+                    beacon_x = x;
+                }
+                break;
+            }
+        }
 
-    let tunning_frequency = beacon_x * 4_000_000 + beacon_y;
+        if beacon_x != 0 {
+            beacon_y = y;
+            break;
+        }
+    }
+
+    let tunning_frequency = (beacon_x as i128) * 4_000_000 + (beacon_y as i128);
 
     dbg!(tunning_frequency);
 }
