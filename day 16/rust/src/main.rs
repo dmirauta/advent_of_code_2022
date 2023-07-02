@@ -3,51 +3,44 @@ use crossterm::{
     ExecutableCommand,
 };
 use regex::Regex;
-use std::{fs, io::stdout, str::FromStr, time::Instant};
+use std::{collections::HashMap, fs, io::stdout, time::Instant};
+
+mod pathfind;
+use pathfind::FloodFill;
 
 #[macro_use]
 extern crate lazy_static;
 
-#[derive(Debug)]
-struct ParsedValve {
-    name: String,
-    rate: u32,
-    connections: Vec<String>,
-}
-
 struct Valve {
+    name: String,
     rate: u32,
     connections: Vec<usize>,
 }
 
-impl FromStr for ParsedValve {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        lazy_static! {
-            static ref REG: Regex = Regex::new(
-                r"Valve (.+) has flow rate=(.+); tunnels{0,1} leads{0,1} to valves{0,1} (.+)$"
-            )
-            .expect("Regex compile failure");
-        }
-
-        let name: String;
-        let rate: u32;
-        let conn: String;
-        if let Some(cap) = REG.captures(s) {
-            name = cap.get(1).unwrap().as_str().parse().unwrap();
-            rate = cap.get(2).unwrap().as_str().parse().unwrap();
-            conn = cap.get(3).unwrap().as_str().parse().unwrap();
-        } else {
-            return Err(String::from("Regex match failure"));
-        }
-
-        Ok(Self {
-            name,
-            rate,
-            connections: conn.split(", ").map(|s| String::from(s)).collect(),
-        })
+fn parse_valve(line: &str) -> (String, u32, Vec<String>) {
+    lazy_static! {
+        static ref REG: Regex = Regex::new(
+            r"Valve (.+) has flow rate=(.+); tunnels{0,1} leads{0,1} to valves{0,1} (.+)$"
+        )
+        .expect("Regex compile failure");
     }
+
+    let name: String;
+    let rate: u32;
+    let conn: String;
+    if let Some(cap) = REG.captures(line) {
+        name = cap.get(1).unwrap().as_str().parse().unwrap();
+        rate = cap.get(2).unwrap().as_str().parse().unwrap();
+        conn = cap.get(3).unwrap().as_str().parse().unwrap();
+    } else {
+        panic!("Regex match failure on line:\n{line}");
+    }
+
+    (
+        name,
+        rate,
+        conn.split(", ").map(|s| String::from(s)).collect(),
+    )
 }
 
 #[derive(Debug, Clone)]
@@ -131,7 +124,7 @@ impl State {
     }
 }
 
-fn state_string(state: &State, valves: &Vec<ParsedValve>) -> String {
+fn state_string(state: &State, valves: &Vec<Valve>) -> String {
     let mut s = format!("released_pressure: {}\n", state.released_pressure);
     for action in state.hist.iter() {
         match action {
@@ -143,8 +136,7 @@ fn state_string(state: &State, valves: &Vec<ParsedValve>) -> String {
 }
 
 fn part1(contents: &String) {
-    let parsed_valves: Vec<ParsedValve> =
-        Vec::from_iter(contents.lines().map(|l| l.parse().unwrap()));
+    let parsed_valves: Vec<_> = Vec::from_iter(contents.lines().map(parse_valve));
     let n_valves = parsed_valves.len();
     let mut valves = vec![];
 
@@ -152,14 +144,15 @@ fn part1(contents: &String) {
         parsed_valves
             .iter()
             .enumerate()
-            .find(|(_, v)| v.name == *k)
+            .find(|(_, (name, _, _))| *name == *k)
             .unwrap()
             .0
     };
-    for pv in parsed_valves.iter() {
-        let connections: Vec<usize> = Vec::from_iter(pv.connections.iter().map(get_idx));
+    for (name, rate, str_conn) in parsed_valves.iter() {
+        let connections: Vec<usize> = Vec::from_iter(str_conn.iter().map(get_idx));
         valves.push(Valve {
-            rate: pv.rate,
+            name: name.clone(),
+            rate: *rate,
             connections,
         })
     }
@@ -173,9 +166,7 @@ fn part1(contents: &String) {
     let maxsecs = 600;
     let start = Instant::now();
     stdout().execute(Hide).unwrap();
-    while queue.len() > 0 && start.elapsed().as_secs() < maxsecs {
-        let current = queue.pop().unwrap();
-
+    while let Some(current) = queue.pop() {
         current.insert_future(&valves, &mut queue);
 
         if current.released_pressure > best.released_pressure {
@@ -195,12 +186,12 @@ fn part1(contents: &String) {
     }
     stdout().execute(Show).unwrap();
 
-    println!("\n{}", state_string(&best, &parsed_valves));
+    println!("\n{}", state_string(&best, &valves));
 
     for (i, o) in best.opened.iter().enumerate() {
         if valves[i].rate > 0 {
             let n = if *o { "" } else { "not " };
-            println!("{} ({}) {}opened", parsed_valves[i].name, valves[i].rate, n);
+            println!("{} ({}) {}opened", valves[i].name, valves[i].rate, n);
         }
     }
 
@@ -216,5 +207,41 @@ fn main() {
     let tcontents = fs::read_to_string(TEST_INPUT_PATH).expect("Could not read {TEST_INPUT_PATH}");
     let contents = fs::read_to_string(INPUT_PATH).expect("Could not read {INPUT_PATH}");
 
-    part1(&contents);
+    // part1(&contents);
+
+    let parsed_valves: Vec<_> = Vec::from_iter(tcontents.lines().map(parse_valve));
+    let n_valves = parsed_valves.len();
+    let mut valves = vec![];
+
+    let get_idx = |k: &String| {
+        parsed_valves
+            .iter()
+            .enumerate()
+            .find(|(_, (name, _, _))| *name == *k)
+            .unwrap()
+            .0
+    };
+    for (name, rate, str_conn) in parsed_valves.iter() {
+        let connections: Vec<usize> = Vec::from_iter(str_conn.iter().map(get_idx));
+        valves.push(Valve {
+            name: name.clone(),
+            rate: *rate,
+            connections,
+        })
+    }
+
+    let edges = HashMap::from_iter((0..n_valves).map(|i| {
+        (
+            i,
+            valves[i].connections.iter().map(|&con| (con, 1)).collect(),
+        )
+    }));
+
+    let mut ff_from_aa = FloodFill::new(0..n_valves, get_idx(&String::from("AA")), &edges);
+
+    dbg!(ff_from_aa
+        .path_to(get_idx(&String::from("HH")))
+        .iter()
+        .map(|&i| valves[i].name.clone())
+        .collect::<Vec<_>>());
 }
