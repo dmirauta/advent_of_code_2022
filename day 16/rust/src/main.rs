@@ -237,7 +237,7 @@ fn main() {
         )
     }));
 
-    let mut ff_from_aa = FloodFill::new(0..n_valves, get_idx(&String::from("AA")), &edges);
+    let ff_from_aa = FloodFill::new(0..n_valves, get_idx(&String::from("AA")), &edges);
 
     dbg!(ff_from_aa
         .path_to(get_idx(&String::from("HH")))

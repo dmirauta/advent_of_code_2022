@@ -20,7 +20,6 @@ impl<K> NodeMetadata<K> {
 /// Basically Dijkstra's algorithm
 pub struct FloodFill<K> {
     metadata: HashMap<K, NodeMetadata<K>>,
-    pathcache: HashMap<K, Vec<K>>,
 }
 
 impl<K> FloodFill<K>
@@ -29,10 +28,7 @@ where
 {
     pub fn new(keys: impl Iterator<Item = K>, start: K, edges: &HashMap<K, Vec<(K, u32)>>) -> Self {
         let metadata: HashMap<K, _> = keys.map(|k| (k, NodeMetadata::new())).collect();
-        let mut new_ff = FloodFill {
-            metadata,
-            pathcache: HashMap::new(),
-        };
+        let mut new_ff = FloodFill { metadata };
         new_ff.fill(start, edges);
         new_ff
     }
@@ -56,23 +52,12 @@ where
         }
     }
 
-    fn compute_path_to(&self, end: K) -> Vec<K> {
+    pub fn path_to(&self, end: K) -> Vec<K> {
         let mut path: Vec<K> = vec![end];
         while let Some(ppk) = self.metadata[path.last().unwrap()].previous.clone() {
             path.push(ppk);
         }
         path.reverse();
         path
-    }
-
-    pub fn path_to(&mut self, end: K) -> Vec<K> {
-        match self.pathcache.get(&end) {
-            Some(path) => path,
-            _ => {
-                self.pathcache.insert(end, self.compute_path_to(end));
-                &self.pathcache[&end]
-            }
-        }
-        .clone()
     }
 }
