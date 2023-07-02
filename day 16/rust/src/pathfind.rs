@@ -17,7 +17,7 @@ impl<K> NodeMetadata<K> {
     }
 }
 
-/// Basically Dijkstra's algorithm
+/// Dijkstra's algorithm on equal length edges (where distance increases with number of hops)
 pub struct FloodFill<K> {
     metadata: HashMap<K, NodeMetadata<K>>,
 }
@@ -26,25 +26,25 @@ impl<K> FloodFill<K>
 where
     K: Eq + Hash + Clone + Copy + Debug,
 {
-    pub fn new(keys: impl Iterator<Item = K>, start: K, edges: &HashMap<K, Vec<(K, u32)>>) -> Self {
+    pub fn new(keys: impl Iterator<Item = K>, start: K, edges: &HashMap<K, Vec<K>>) -> Self {
         let metadata: HashMap<K, _> = keys.map(|k| (k, NodeMetadata::new())).collect();
         let mut new_ff = FloodFill { metadata };
         new_ff.fill(start, edges);
         new_ff
     }
 
-    fn fill(&mut self, start: K, edges: &HashMap<K, Vec<(K, u32)>>) {
+    fn fill(&mut self, start: K, edges: &HashMap<K, Vec<K>>) {
         let mut queue: Vec<K> = vec![start];
         while let Some(current) = queue.pop() {
             self.metadata.get_mut(&current).unwrap().visited = true;
             let cd = self.metadata[&current].dist;
 
-            for (neighbour_key, edge_len) in edges[&current].iter() {
+            for neighbour_key in edges[&current].iter() {
                 let nn = self.metadata.get_mut(neighbour_key).unwrap();
                 if !nn.visited {
                     queue.push(neighbour_key.clone());
-                    if nn.dist > cd + edge_len {
-                        nn.dist = cd + edge_len;
+                    if nn.dist > cd + 1 {
+                        nn.dist = cd + 1;
                         nn.previous = Some(current);
                     }
                 }

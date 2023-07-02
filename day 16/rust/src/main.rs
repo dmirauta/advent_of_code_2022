@@ -230,12 +230,7 @@ fn main() {
         })
     }
 
-    let edges = HashMap::from_iter((0..n_valves).map(|i| {
-        (
-            i,
-            valves[i].connections.iter().map(|&con| (con, 1)).collect(),
-        )
-    }));
+    let edges = HashMap::from_iter((0..n_valves).map(|i| (i, valves[i].connections.clone())));
 
     let ff_from_aa = FloodFill::new(0..n_valves, get_idx(&String::from("AA")), &edges);
 
