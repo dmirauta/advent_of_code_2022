@@ -11,10 +11,12 @@ use pathfind::FloodFill;
 #[macro_use]
 extern crate lazy_static;
 
+#[derive(Debug)]
 struct Valve {
     name: String,
     rate: u32,
-    connections: Vec<usize>,
+    all_connections: Vec<usize>,
+    relevant_connections: Vec<(usize, u32)>,
 }
 
 fn parse_valve(line: &str) -> (String, u32, Vec<String>) {
@@ -41,6 +43,53 @@ fn parse_valve(line: &str) -> (String, u32, Vec<String>) {
         rate,
         conn.split(", ").map(|s| String::from(s)).collect(),
     )
+}
+
+struct Valves {
+    all: Vec<Valve>,
+    num: usize,
+    start_idx: usize,
+}
+
+impl Valves {
+    fn from(contents: &String) -> Self {
+        let parsed_valves: Vec<_> = Vec::from_iter(contents.lines().map(parse_valve));
+        let mut all = vec![];
+        let num = parsed_valves.len();
+
+        let get_idx = |k: &String| {
+            parsed_valves
+                .iter()
+                .enumerate()
+                .find(|(_, (name, _, _))| *name == *k)
+                .unwrap()
+                .0
+        };
+        for (name, rate, str_conn) in parsed_valves.iter() {
+            let connections: Vec<usize> = Vec::from_iter(str_conn.iter().map(get_idx));
+            all.push(Valve {
+                name: name.clone(),
+                rate: *rate,
+                all_connections: connections,
+                relevant_connections: vec![],
+            })
+        }
+
+        Self {
+            all,
+            num,
+            start_idx: get_idx(&String::from("AA")),
+        }
+    }
+
+    fn get_idx(&self, k: &String) -> usize {
+        self.all
+            .iter()
+            .enumerate()
+            .find(|(_, v)| v.name == *k)
+            .unwrap()
+            .0
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -104,7 +153,7 @@ impl State {
         }
 
         // travel to neighbouring room
-        for &neighbour_idx in valves[self.currently_at].connections.iter() {
+        for &neighbour_idx in valves[self.currently_at].all_connections.iter() {
             if !self.forms_cycle(neighbour_idx) {
                 let mut new = self.next();
                 new.currently_at = neighbour_idx;
@@ -135,31 +184,9 @@ fn state_string(state: &State, valves: &Vec<Valve>) -> String {
     s
 }
 
-fn part1(contents: &String) {
-    let parsed_valves: Vec<_> = Vec::from_iter(contents.lines().map(parse_valve));
-    let n_valves = parsed_valves.len();
-    let mut valves = vec![];
-
-    let get_idx = |k: &String| {
-        parsed_valves
-            .iter()
-            .enumerate()
-            .find(|(_, (name, _, _))| *name == *k)
-            .unwrap()
-            .0
-    };
-    for (name, rate, str_conn) in parsed_valves.iter() {
-        let connections: Vec<usize> = Vec::from_iter(str_conn.iter().map(get_idx));
-        valves.push(Valve {
-            name: name.clone(),
-            rate: *rate,
-            connections,
-        })
-    }
-
-    let start_idx = get_idx(&String::from("AA"));
-    let mut queue: Vec<State> = vec![State::starting(start_idx, n_valves)];
-    let mut best = State::starting(start_idx, n_valves);
+fn part1(valves: &Valves) {
+    let mut queue: Vec<State> = vec![State::starting(valves.start_idx, valves.num)];
+    let mut best = State::starting(valves.start_idx, valves.num);
 
     // brute action tree search
     let mut i: u64 = 0;
@@ -167,7 +194,7 @@ fn part1(contents: &String) {
     let start = Instant::now();
     stdout().execute(Hide).unwrap();
     while let Some(current) = queue.pop() {
-        current.insert_future(&valves, &mut queue);
+        current.insert_future(&valves.all, &mut queue);
 
         if current.released_pressure > best.released_pressure {
             best = current;
@@ -183,15 +210,21 @@ fn part1(contents: &String) {
                 best.released_pressure
             );
         }
+        if start.elapsed().as_secs() > maxsecs {
+            break;
+        }
     }
     stdout().execute(Show).unwrap();
 
-    println!("\n{}", state_string(&best, &valves));
+    println!("\n{}", state_string(&best, &valves.all));
 
     for (i, o) in best.opened.iter().enumerate() {
-        if valves[i].rate > 0 {
+        if valves.all[i].rate > 0 {
             let n = if *o { "" } else { "not " };
-            println!("{} ({}) {}opened", valves[i].name, valves[i].rate, n);
+            println!(
+                "{} ({}) {}opened",
+                valves.all[i].name, valves.all[i].rate, n
+            );
         }
     }
 
@@ -207,36 +240,19 @@ fn main() {
     let tcontents = fs::read_to_string(TEST_INPUT_PATH).expect("Could not read {TEST_INPUT_PATH}");
     let contents = fs::read_to_string(INPUT_PATH).expect("Could not read {INPUT_PATH}");
 
-    // part1(&contents);
+    let valves = Valves::from(&tcontents);
+    // part1(&valves);
 
-    let parsed_valves: Vec<_> = Vec::from_iter(tcontents.lines().map(parse_valve));
-    let n_valves = parsed_valves.len();
-    let mut valves = vec![];
+    let edges: HashMap<usize, Vec<usize>> =
+        HashMap::from_iter((0..valves.num).map(|i| (i, valves.all[i].all_connections.clone())));
 
-    let get_idx = |k: &String| {
-        parsed_valves
-            .iter()
-            .enumerate()
-            .find(|(_, (name, _, _))| *name == *k)
-            .unwrap()
-            .0
-    };
-    for (name, rate, str_conn) in parsed_valves.iter() {
-        let connections: Vec<usize> = Vec::from_iter(str_conn.iter().map(get_idx));
-        valves.push(Valve {
-            name: name.clone(),
-            rate: *rate,
-            connections,
-        })
-    }
+    let ff_from_aa = FloodFill::new(0..valves.num, valves.start_idx, &edges);
 
-    let edges = HashMap::from_iter((0..n_valves).map(|i| (i, valves[i].connections.clone())));
-
-    let ff_from_aa = FloodFill::new(0..n_valves, get_idx(&String::from("AA")), &edges);
-
+    let target = valves.get_idx(&String::from("HH"));
     dbg!(ff_from_aa
-        .path_to(get_idx(&String::from("HH")))
+        .path_to(target)
         .iter()
-        .map(|&i| valves[i].name.clone())
+        .map(|&i| valves.all[i].name.clone())
         .collect::<Vec<_>>());
+    dbg!(ff_from_aa.dist(target));
 }

@@ -34,6 +34,8 @@ where
     }
 
     fn fill(&mut self, start: K, edges: &HashMap<K, Vec<K>>) {
+        self.metadata.get_mut(&start).unwrap().dist = 0;
+
         let mut queue: Vec<K> = vec![start];
         while let Some(current) = queue.pop() {
             self.metadata.get_mut(&current).unwrap().visited = true;
@@ -52,6 +54,7 @@ where
         }
     }
 
+    /// Backtrace shortest path
     pub fn path_to(&self, end: K) -> Vec<K> {
         let mut path: Vec<K> = vec![end];
         while let Some(ppk) = self.metadata[path.last().unwrap()].previous.clone() {
@@ -59,5 +62,9 @@ where
         }
         path.reverse();
         path
+    }
+
+    pub fn dist(&self, end: K) -> u32 {
+        self.metadata[&end].dist
     }
 }
