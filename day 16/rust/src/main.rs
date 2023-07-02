@@ -68,13 +68,15 @@ struct State {
 
 impl State {
     fn starting(start_idx: usize, n: usize) -> Self {
+        let mut hist = Vec::with_capacity(32);
+        hist.push(Action::Move(start_idx));
         State {
             minute: 0,
             total_rate: 0,
             released_pressure: 0,
             currently_at: start_idx,
             opened: vec![false; n],
-            hist: Vec::with_capacity(32),
+            hist,
         }
     }
 
@@ -85,26 +87,35 @@ impl State {
         new
     }
 
+    fn forms_cycle(&self, next_valve: usize) -> bool {
+        if let Some((last_occured, _)) = self.hist.iter().enumerate().rev().find(|(_, a)| match a {
+            Action::Move(valve) => *valve == next_valve,
+            _ => false,
+        }) {
+            if let Some(_) = (last_occured + 1..self.hist.len()).find(|i| match self.hist[*i] {
+                Action::Open => true,
+                _ => false,
+            }) {
+                return false;
+            } else {
+                return true;
+            }
+        }
+        false
+    }
+
     /// Returns possible next actions
     fn insert_future(&self, valves: &Vec<Valve>, next_actions: &mut Vec<State>) {
         if self.minute >= 30 {
             return;
         }
 
-        let last_visited: usize =
-            if let Some(Action::Move(id)) = self.hist.get(self.hist.len().wrapping_sub(2)) {
-                *id
-            } else {
-                usize::MAX
-            };
-
         // travel to neighbouring room
-        for neighbour_idx in valves[self.currently_at].connections.iter() {
-            // avoid immediately cycling back
-            if *neighbour_idx != last_visited {
+        for &neighbour_idx in valves[self.currently_at].connections.iter() {
+            if !self.forms_cycle(neighbour_idx) {
                 let mut new = self.next();
-                new.currently_at = *neighbour_idx;
-                new.hist.push(Action::Move(*neighbour_idx));
+                new.currently_at = neighbour_idx;
+                new.hist.push(Action::Move(neighbour_idx));
                 next_actions.push(new);
             }
         }
@@ -159,7 +170,7 @@ fn part1(contents: &String) {
 
     // brute action tree search
     let mut i: u64 = 0;
-    let maxsecs = 20;
+    let maxsecs = 600;
     let start = Instant::now();
     stdout().execute(Hide).unwrap();
     while queue.len() > 0 && start.elapsed().as_secs() < maxsecs {
@@ -172,7 +183,7 @@ fn part1(contents: &String) {
         }
 
         i += 1;
-        if i % 1000 == 0 {
+        if i % 10000 == 0 {
             print!(
                 "i = {}, time = {}, queue size = {}, best pressure released = {}     \r",
                 &i,
@@ -185,6 +196,17 @@ fn part1(contents: &String) {
     stdout().execute(Show).unwrap();
 
     println!("\n{}", state_string(&best, &parsed_valves));
+
+    for (i, o) in best.opened.iter().enumerate() {
+        if valves[i].rate > 0 {
+            let n = if *o { "" } else { "not " };
+            println!("{} ({}) {}opened", parsed_valves[i].name, valves[i].rate, n);
+        }
+    }
+
+    if queue.len() > 0 {
+        println!("\nWarning: search terminated early.");
+    }
 }
 
 static TEST_INPUT_PATH: &str = "../test_input";
@@ -194,5 +216,5 @@ fn main() {
     let tcontents = fs::read_to_string(TEST_INPUT_PATH).expect("Could not read {TEST_INPUT_PATH}");
     let contents = fs::read_to_string(INPUT_PATH).expect("Could not read {INPUT_PATH}");
 
-    part1(&tcontents);
+    part1(&contents);
 }
