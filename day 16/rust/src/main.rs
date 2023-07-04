@@ -12,14 +12,14 @@ use pathfind::FloodFill;
 extern crate lazy_static;
 
 #[derive(Debug)]
-struct Valve {
-    name: String,
+struct Valve<'a> {
+    name: &'a str,
     rate: u32,
     all_connections: Vec<usize>,
     relevant_connections: Vec<(usize, u32)>,
 }
 
-fn parse_valve(line: &str) -> (String, u32, Vec<String>) {
+fn parse_valve(line: &str) -> (&str, u32, Vec<&str>) {
     lazy_static! {
         static ref REG: Regex = Regex::new(
             r"Valve (.+) has flow rate=(.+); tunnels{0,1} leads{0,1} to valves{0,1} (.+)$"
@@ -27,68 +27,57 @@ fn parse_valve(line: &str) -> (String, u32, Vec<String>) {
         .expect("Regex compile failure");
     }
 
-    let name: String;
+    let name: &str;
     let rate: u32;
-    let conn: String;
+    let conn: &str;
     if let Some(cap) = REG.captures(line) {
-        name = cap.get(1).unwrap().as_str().parse().unwrap();
+        name = cap.get(1).unwrap().as_str();
         rate = cap.get(2).unwrap().as_str().parse().unwrap();
-        conn = cap.get(3).unwrap().as_str().parse().unwrap();
+        conn = cap.get(3).unwrap().as_str();
     } else {
         panic!("Regex match failure on line:\n{line}");
     }
 
-    (
-        name,
-        rate,
-        conn.split(", ").map(|s| String::from(s)).collect(),
-    )
+    (name, rate, conn.split(", ").collect())
 }
 
-struct Valves {
-    all: Vec<Valve>,
+struct Valves<'a> {
+    all: Vec<Valve<'a>>,
+    ids: HashMap<&'a str, usize>,
     num: usize,
     start_idx: usize,
 }
 
-impl Valves {
-    fn from(contents: &String) -> Self {
-        let parsed_valves: Vec<_> = Vec::from_iter(contents.lines().map(parse_valve));
+impl<'a> Valves<'a> {
+    fn from(contents: &'a String) -> Self {
+        let parsed_valves = Vec::from_iter(contents.lines().map(parse_valve));
         let mut all = vec![];
         let num = parsed_valves.len();
 
-        let get_idx = |k: &String| {
+        let ids = HashMap::from_iter(
             parsed_valves
                 .iter()
                 .enumerate()
-                .find(|(_, (name, _, _))| *name == *k)
-                .unwrap()
-                .0
-        };
+                .map(|(i, (name, _, _))| (*name, i)),
+        );
+        let start_idx = ids["AA"];
+
         for (name, rate, str_conn) in parsed_valves.iter() {
-            let connections: Vec<usize> = Vec::from_iter(str_conn.iter().map(get_idx));
+            let all_connections: Vec<usize> = Vec::from_iter(str_conn.iter().map(|to| ids[*to]));
             all.push(Valve {
-                name: name.clone(),
+                name: *name,
                 rate: *rate,
-                all_connections: connections,
+                all_connections,
                 relevant_connections: vec![],
             })
         }
 
         Self {
             all,
+            ids,
             num,
-            start_idx: get_idx(&String::from("AA")),
+            start_idx,
         }
-    }
-
-    fn get_idx(&self, k: &String) -> usize {
-        self.all
-            .iter()
-            .enumerate()
-            .find(|(_, v)| v.name == *k)
-            .unwrap()
-            .0
     }
 }
 
@@ -248,11 +237,11 @@ fn main() {
 
     let ff_from_aa = FloodFill::new(0..valves.num, valves.start_idx, &edges);
 
-    let target = valves.get_idx(&String::from("HH"));
+    let target = valves.ids["HH"];
     dbg!(ff_from_aa
         .path_to(target)
         .iter()
-        .map(|&i| valves.all[i].name.clone())
+        .map(|&i| valves.all[i].name)
         .collect::<Vec<_>>());
     dbg!(ff_from_aa.dist(target));
 }
