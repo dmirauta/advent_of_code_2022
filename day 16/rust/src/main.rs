@@ -44,6 +44,7 @@ fn parse_valve(line: &str) -> (&str, u32, Vec<&str>) {
 struct Valves<'a> {
     all: Vec<Valve<'a>>,
     ids: HashMap<&'a str, usize>,
+    floodfills: HashMap<usize, FloodFill<usize>>,
     num: usize,
     start_idx: usize,
 }
@@ -72,9 +73,16 @@ impl<'a> Valves<'a> {
             })
         }
 
+        let edges = (0..num)
+            .map(|i| (i, all[i].all_connections.clone()))
+            .collect();
+
+        let floodfills = (0..num).map(|i| (i, FloodFill::new(i, &edges))).collect();
+
         Self {
             all,
             ids,
+            floodfills,
             num,
             start_idx,
         }
@@ -232,16 +240,14 @@ fn main() {
     let valves = Valves::from(&tcontents);
     // part1(&valves);
 
-    let edges: HashMap<usize, Vec<usize>> =
-        HashMap::from_iter((0..valves.num).map(|i| (i, valves.all[i].all_connections.clone())));
-
-    let ff_from_aa = FloodFill::new(0..valves.num, valves.start_idx, &edges);
-
+    let ff_from_aa = &valves.floodfills[&valves.start_idx];
     let target = valves.ids["HH"];
+
     dbg!(ff_from_aa
         .path_to(target)
         .iter()
         .map(|&i| valves.all[i].name)
         .collect::<Vec<_>>());
+
     dbg!(ff_from_aa.dist(target));
 }

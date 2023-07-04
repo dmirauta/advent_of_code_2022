@@ -26,8 +26,8 @@ impl<K> FloodFill<K>
 where
     K: Eq + Hash + Clone + Copy + Debug,
 {
-    pub fn new(keys: impl Iterator<Item = K>, start: K, edges: &HashMap<K, Vec<K>>) -> Self {
-        let metadata: HashMap<K, _> = keys.map(|k| (k, NodeMetadata::new())).collect();
+    pub fn new(start: K, edges: &HashMap<K, Vec<K>>) -> Self {
+        let metadata: HashMap<K, _> = edges.keys().map(|k| (*k, NodeMetadata::new())).collect();
         let mut new_ff = FloodFill { metadata };
         new_ff.fill(start, edges);
         new_ff
