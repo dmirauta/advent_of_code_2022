@@ -1,8 +1,12 @@
-use std::{collections::HashMap, fmt::Debug, hash::Hash};
+use std::{
+    collections::{HashMap, VecDeque},
+    fmt::Debug,
+    hash::Hash,
+};
 
 #[derive(Debug)]
 struct NodeMetadata<K> {
-    visited: bool,
+    expanded: bool,
     dist: u32,
     previous: Option<K>,
 }
@@ -10,7 +14,7 @@ struct NodeMetadata<K> {
 impl<K> NodeMetadata<K> {
     fn new() -> Self {
         NodeMetadata {
-            visited: false,
+            expanded: false,
             dist: u32::MAX,
             previous: None,
         }
@@ -36,15 +40,15 @@ where
     fn fill(&mut self, start: K, edges: &HashMap<K, Vec<K>>) {
         self.metadata.get_mut(&start).unwrap().dist = 0;
 
-        let mut queue: Vec<K> = vec![start];
-        while let Some(current) = queue.pop() {
-            self.metadata.get_mut(&current).unwrap().visited = true;
+        let mut queue: VecDeque<K> = VecDeque::from(vec![start]);
+        while let Some(current) = queue.pop_front() {
+            self.metadata.get_mut(&current).unwrap().expanded = true;
             let cd = self.metadata[&current].dist;
 
             for neighbour_key in edges[&current].iter() {
                 let nn = self.metadata.get_mut(neighbour_key).unwrap();
-                if !nn.visited {
-                    queue.push(neighbour_key.clone());
+                if !nn.expanded {
+                    queue.push_back(neighbour_key.clone());
                     if nn.dist > cd + 1 {
                         nn.dist = cd + 1;
                         nn.previous = Some(current);

@@ -237,17 +237,17 @@ fn main() {
     // part1(&valves);
 
     let ff_from_aa = &valves.floodfills[&valves.start_idx];
-    // let target = valves.ids["ZX"];
-    //
-    // dbg!(ff_from_aa
-    //     .path_to(target)
-    //     .iter()
-    //     .map(|&i| valves.all[i].name)
-    //     .collect::<Vec<_>>());
-    //
-    // dbg!(ff_from_aa.dist(target));
+    let target = valves.ids["OF"];
 
-    for i in valves.major {
-        dbg!(valves.all[i].name, ff_from_aa.dist(i));
-    }
+    dbg!(ff_from_aa
+        .path_to(target)
+        .iter()
+        .map(|&i| valves.all[i].name)
+        .collect::<Vec<_>>());
+
+    dbg!(ff_from_aa.dist(target));
+
+    // for i in valves.major {
+    //     dbg!(valves.all[i].name, ff_from_aa.dist(i));
+    // }
 }
