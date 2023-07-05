@@ -121,7 +121,8 @@ impl State {
         }
     }
 
-    fn next(&self, actions: Vec<Action>) -> Self {
+    /// Returns an altered state, after some potential next actions
+    fn step_through(&self, actions: Vec<Action>) -> Self {
         let mut new = self.clone();
         for action in actions {
             new.minute += 1;
@@ -131,70 +132,87 @@ impl State {
         new
     }
 
-    /// Returns possible next actions
-    fn insert_future(&self, valves: &Valves, next_actions: &mut Vec<State>) {
-        if self.minute >= 30 {
-            return;
-        }
-
+    /// Puts possible next actions into expand queue
+    fn future(&self, valves: &Valves) -> Vec<State> {
         let remaining_major: Vec<&usize> = valves
             .major
             .iter()
             .filter(|ni| !self.opened[**ni])
             .collect();
 
-        if remaining_major.len() == 0 {
-            next_actions.push(self.next(vec![Action::Stay]));
-            return;
-        }
+        let mut next_actions = vec![];
 
-        for &neighbour_idx in remaining_major {
-            let path = valves.floodfills[&self.currently_at].path_to(neighbour_idx);
+        for &destination_idx in remaining_major {
+            let path = valves.floodfills[&self.currently_at].path_to(destination_idx);
             let mut actions: Vec<_> = path[1..].iter().map(|i| Action::Move(*i)).collect();
-            actions.push(Action::Open);
+            actions.push(Action::Open); // Open destination
 
-            let mut new = self.next(actions);
-            new.currently_at = neighbour_idx;
+            let mut new = self.step_through(actions);
+            new.currently_at = destination_idx;
 
-            new.opened[neighbour_idx] = true;
-            new.total_rate += valves.all[neighbour_idx].rate;
+            new.opened[destination_idx] = true; // needn't be a destination from now
+            new.total_rate += valves.all[destination_idx].rate; // can begin to contribute on
+                                                                // subsequent steps
 
             if new.minute <= 30 {
                 next_actions.push(new);
             }
         }
-    }
-}
 
-fn state_string(state: &State, valves: &Vec<Valve>) -> String {
-    let mut s = format!("released_pressure: {}\n", state.released_pressure);
-    for action in state.hist.iter() {
-        match action {
-            Action::Move(id) => s += format!("Move to {}\n", valves[*id].name).as_str(),
-            Action::Open => s += format!("Open\n").as_str(),
-            Action::Stay => s += format!("Stay\n").as_str(),
-        };
+        if next_actions.len() == 0 && self.minute < 30 {
+            next_actions.push(self.step_through(vec![Action::Stay]));
+        }
+
+        next_actions
     }
-    s
+
+    fn replay(&self, valves: &Vec<Valve>) {
+        let mut previous = 0;
+        let mut total_rate = 0;
+        let mut total_released = 0;
+        for (i, current) in self.hist[1..].iter().enumerate() {
+            println!("\n== Minute {} ==", i + 1);
+            println!("Releasing {total_rate} pressure.");
+            total_released += total_rate;
+            println!("{total_released} total.");
+            match current {
+                Action::Move(id) => {
+                    previous = *id;
+                    println!("Move to {}", valves[*id].name);
+                }
+                Action::Open => {
+                    total_rate += valves[previous].rate;
+                    println!("Open {}", valves[previous].name);
+                }
+                Action::Stay => println!("Stay"),
+            };
+        }
+    }
 }
 
 fn part1(valves: &Valves) {
     let mut best = State::starting(valves.start_idx, valves.num);
     let mut queue: Vec<State> = vec![best.clone()];
 
+    // let mut perm_checked = 0;
+
     let mut i: u64 = 0;
     let maxsecs = 60;
     let start = Instant::now();
     stdout().execute(cursor::Hide).unwrap();
     while let Some(current) = queue.pop() {
-        current.insert_future(&valves, &mut queue);
+        queue.append(&mut current.future(&valves));
+
+        // if current.minute == 30 {
+        //     perm_checked += 1;
+        // }
 
         if current.released_pressure > best.released_pressure {
             best = current;
         }
 
         i += 1;
-        if i % 100 == 0 {
+        if i % 1000 == 0 {
             print!(
                 "i = {}, time = {}, queue size = {}, best pressure released = {}     \r",
                 &i,
@@ -208,22 +226,24 @@ fn part1(valves: &Valves) {
         }
     }
     stdout().execute(cursor::Show).unwrap();
+    println!();
 
-    println!("\n{}", state_string(&best, &valves.all));
-
-    for (i, o) in best.opened.iter().enumerate() {
-        if valves.all[i].rate > 0 {
-            let n = if *o { "" } else { "not " };
-            println!(
-                "{} ({}) {}opened",
-                valves.all[i].name, valves.all[i].rate, n
-            );
-        }
-    }
-
-    if queue.len() > 0 {
-        println!("\nWarning: search terminated early.");
-    }
+    best.replay(&valves.all);
+    // println!("\n{perm_checked} visit orders (built and) checked\n");
+    //
+    // for (i, o) in best.opened.iter().enumerate() {
+    //     if valves.all[i].rate > 0 {
+    //         let n = if *o { "" } else { "not " };
+    //         println!(
+    //             "{} ({}) {}opened",
+    //             valves.all[i].name, valves.all[i].rate, n
+    //         );
+    //     }
+    // }
+    //
+    // if queue.len() > 0 {
+    //     println!("\nWarning: search terminated early.");
+    // }
 }
 
 static TEST_INPUT_PATH: &str = "../test_input";
@@ -234,18 +254,18 @@ fn main() {
     let contents = fs::read_to_string(INPUT_PATH).expect("Could not read {INPUT_PATH}");
 
     let valves = Valves::from(&contents);
-    // part1(&valves);
+    part1(&valves);
 
     let ff_from_aa = &valves.floodfills[&valves.start_idx];
-    let target = valves.ids["OF"];
-
-    dbg!(ff_from_aa
-        .path_to(target)
-        .iter()
-        .map(|&i| valves.all[i].name)
-        .collect::<Vec<_>>());
-
-    dbg!(ff_from_aa.dist(target));
+    // let target = valves.ids["OF"];
+    //
+    // dbg!(ff_from_aa
+    //     .path_to(target)
+    //     .iter()
+    //     .map(|&i| valves.all[i].name)
+    //     .collect::<Vec<_>>());
+    //
+    // dbg!(ff_from_aa.dist(target));
 
     // for i in valves.major {
     //     dbg!(valves.all[i].name, ff_from_aa.dist(i));
