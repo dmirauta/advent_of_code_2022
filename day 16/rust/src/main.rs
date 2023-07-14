@@ -1,6 +1,11 @@
 use crossterm::{cursor, ExecutableCommand};
 use regex::Regex;
-use std::{collections::HashMap, fs, io::stdout, time::Instant};
+use std::{
+    collections::{HashMap, VecDeque},
+    fs,
+    io::stdout,
+    time::Instant,
+};
 
 mod pathfind;
 use pathfind::FloodFill;
@@ -104,6 +109,7 @@ struct State {
     released_pressure: u32,
     currently_at: usize,
     opened: Vec<bool>,
+    plan: VecDeque<Action>,
     hist: Vec<Action>,
 }
 
@@ -117,53 +123,56 @@ impl State {
             released_pressure: 0,
             currently_at: start_idx,
             opened: vec![false; n],
+            plan: VecDeque::new(),
             hist,
         }
     }
 
-    /// Returns an altered state, after some potential next actions
-    fn step_through(&self, actions: Vec<Action>) -> Self {
-        let mut new = self.clone();
-        for action in actions {
-            new.minute += 1;
-            new.released_pressure += self.total_rate;
-            new.hist.push(action);
+    fn transition(&self, action: Action, valves: &Valves) -> Self {
+        let mut next = self.clone();
+        next.minute += 1;
+        next.released_pressure += self.total_rate;
+        match action {
+            Action::Move(destination_idx) => next.currently_at = destination_idx,
+            Action::Open => {
+                next.opened[next.currently_at] = true;
+                next.total_rate += valves.all[next.currently_at].rate;
+            }
+            Action::Stay => {}
         }
-        new
+        next.hist.push(action);
+        next
     }
 
-    /// Puts possible next actions into expand queue
-    fn future(&self, valves: &Valves) -> Vec<State> {
-        let remaining_major: Vec<&usize> = valves
-            .major
-            .iter()
-            .filter(|ni| !self.opened[**ni])
-            .collect();
+    /// Returns choices for next action
+    fn future(&mut self, valves: &Valves) -> Vec<State> {
+        if self.minute >= 30 {
+            return vec![];
+        }
+        if let Some(action) = self.plan.pop_front() {
+            return vec![self.transition(action, &valves)];
+        } else {
+            let remaining_major: Vec<&usize> = valves
+                .major
+                .iter()
+                .filter(|ni| !self.opened[**ni])
+                .collect();
 
-        let mut next_actions = vec![];
-
-        for &destination_idx in remaining_major {
-            let path = valves.floodfills[&self.currently_at].path_to(destination_idx);
-            let mut actions: Vec<_> = path[1..].iter().map(|i| Action::Move(*i)).collect();
-            actions.push(Action::Open); // Open destination
-
-            let mut new = self.step_through(actions);
-            new.currently_at = destination_idx;
-
-            new.opened[destination_idx] = true; // needn't be a destination from now
-            new.total_rate += valves.all[destination_idx].rate; // can begin to contribute on
-                                                                // subsequent steps
-
-            if new.minute <= 30 {
-                next_actions.push(new);
+            if remaining_major.len() == 0 {
+                return vec![self.transition(Action::Stay, &valves)];
             }
-        }
 
-        if next_actions.len() == 0 && self.minute < 30 {
-            next_actions.push(self.step_through(vec![Action::Stay]));
-        }
+            return Vec::from_iter(remaining_major.iter().map(|&&destination_idx| {
+                let path = valves.floodfills[&self.currently_at].path_to(destination_idx);
 
-        next_actions
+                let mut next = self.transition(Action::Move(path[1]), &valves);
+                for future_dest in path[2..].iter() {
+                    next.plan.push_back(Action::Move(*future_dest))
+                }
+                next.plan.push_back(Action::Open); // Open destination
+                next
+            }));
+        }
     }
 
     fn replay(&self, valves: &Vec<Valve>) {
@@ -200,7 +209,7 @@ fn part1(valves: &Valves) {
     let maxsecs = 60;
     let start = Instant::now();
     stdout().execute(cursor::Hide).unwrap();
-    while let Some(current) = queue.pop() {
+    while let Some(mut current) = queue.pop() {
         queue.append(&mut current.future(&valves));
 
         // if current.minute == 30 {
