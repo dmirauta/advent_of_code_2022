@@ -23,6 +23,7 @@ impl<K> NodeMetadata<K> {
 
 /// Dijkstra's algorithm on equal length edges (where distance increases with number of hops)
 pub struct FloodFill<K> {
+    start: K,
     metadata: HashMap<K, NodeMetadata<K>>,
 }
 
@@ -32,7 +33,7 @@ where
 {
     pub fn new(start: K, edges: &HashMap<K, Vec<K>>) -> Self {
         let metadata: HashMap<K, _> = edges.keys().map(|k| (*k, NodeMetadata::new())).collect();
-        let mut new_ff = FloodFill { metadata };
+        let mut new_ff = FloodFill { start, metadata };
         new_ff.fill(start, edges);
         new_ff
     }
@@ -64,8 +65,13 @@ where
         while let Some(ppk) = self.metadata[path.last().unwrap()].previous.clone() {
             path.push(ppk);
         }
-        path.reverse();
-        path
+        if *path.last().unwrap() == self.start {
+            path.reverse();
+            path
+        } else {
+            // end does not connect to start
+            vec![]
+        }
     }
 
     pub fn dist(&self, end: K) -> u32 {
