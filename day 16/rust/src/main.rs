@@ -11,6 +11,10 @@ use std::{
 mod pathfind;
 use pathfind::FloodFill;
 
+extern crate rayon;
+
+use rayon::prelude::*;
+
 #[macro_use]
 extern crate lazy_static;
 
@@ -113,13 +117,11 @@ struct AgentState {
 
 impl AgentState {
     fn new(start_idx: usize) -> Self {
-        let mut hist = Vec::with_capacity(32);
-        hist.push(Action::Move(start_idx));
         Self {
             currently_at: start_idx,
             targeting: None,
             plan: VecDeque::with_capacity(32),
-            hist,
+            hist: Vec::with_capacity(32),
         }
     }
 
@@ -261,7 +263,7 @@ impl NetworkState {
             total_released += total_rate;
             println!("{total_released} total.");
             for (j, agent) in self.agents.iter().enumerate() {
-                let current = agent.hist[i].clone();
+                let current = agent.hist[i - 1].clone();
                 print!("Agent {} ", j + 1);
                 match current {
                     Action::Move(id) => {
@@ -277,20 +279,54 @@ impl NetworkState {
             }
         }
     }
-
     fn search_for_best_action_sequence(
         valves: &Valves,
         agents: Vec<AgentState>,
         max_sim_time: u32,
     ) {
-        let mut best = NetworkState::starting(valves.num, agents);
-        let mut queue: Vec<NetworkState> = vec![best.clone()];
-
-        let mut expanded: u64 = 0;
-        let max_real_time = 240;
-        let start = Instant::now();
+        let init_queue: Vec<NetworkState> =
+            NetworkState::starting(valves.num, agents).future(valves);
 
         stdout().execute(cursor::Hide).unwrap();
+        let best_per: Vec<_> = init_queue
+            .par_iter()
+            .enumerate()
+            .map(|(i, start)| Self::best_from(valves, start.clone(), max_sim_time, i))
+            .collect();
+        stdout().execute(cursor::Show).unwrap();
+        println!();
+
+        let best = best_per
+            .iter()
+            .max_by(|a, b| a.released_pressure.cmp(&b.released_pressure))
+            .unwrap();
+
+        best.replay(&valves.all, 1..=(max_sim_time as usize));
+
+        // for (i, o) in best.opened.iter().enumerate() {
+        //     if valves.all[i].rate > 0 {
+        //         let n = if *o { "" } else { "not " };
+        //         println!(
+        //             "{} ({}) {}opened",
+        //             valves.all[i].name, valves.all[i].rate, n
+        //         );
+        //     }
+        // }
+    }
+
+    fn best_from(
+        valves: &Valves,
+        init: NetworkState,
+        max_sim_time: u32,
+        id: usize,
+    ) -> NetworkState {
+        let mut best = init.clone();
+        let mut queue: Vec<NetworkState> = vec![init];
+
+        let mut expanded: u64 = 0;
+        let max_real_time = 60;
+        let start = Instant::now();
+
         while let Some(mut current) = queue.pop() {
             let secs_passed = start.elapsed().as_secs();
             if secs_passed > max_real_time {
@@ -304,33 +340,19 @@ impl NetworkState {
             }
             if start.elapsed().as_millis() % 1000 == 0 || queue.len() < 2 {
                 print!(
-                    "expanded = {}, time = {}, queue size = {}, best pressure released = {}     \r",
-                    &expanded,
-                    secs_passed,
+                    "(instance {id}) expanded = {expanded}, time = {secs_passed}, queue size = {}, best pressure released = {}     \r",
                     queue.len(),
                     best.released_pressure
                 );
             }
             expanded += 1;
         }
-        stdout().execute(cursor::Show).unwrap();
-        println!();
-
-        best.replay(&valves.all, 1..=(max_sim_time as usize));
-
-        // for (i, o) in best.opened.iter().enumerate() {
-        //     if valves.all[i].rate > 0 {
-        //         let n = if *o { "" } else { "not " };
-        //         println!(
-        //             "{} ({}) {}opened",
-        //             valves.all[i].name, valves.all[i].rate, n
-        //         );
-        //     }
-        // }
 
         if queue.len() > 0 {
             println!("\nWarning: search terminated early.");
         }
+
+        best
     }
 }
 
