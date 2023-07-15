@@ -23,8 +23,9 @@ impl<K> NodeMetadata<K> {
 
 /// Dijkstra's algorithm on equal length edges (where distance increases with number of hops)
 pub struct FloodFill<K> {
-    start: K,
+    pub start: K,
     metadata: HashMap<K, NodeMetadata<K>>,
+    pub shortest_path: HashMap<K, Vec<K>>,
 }
 
 impl<K> FloodFill<K>
@@ -33,8 +34,15 @@ where
 {
     pub fn new(start: K, edges: &HashMap<K, Vec<K>>) -> Self {
         let metadata: HashMap<K, _> = edges.keys().map(|k| (*k, NodeMetadata::new())).collect();
-        let mut new_ff = FloodFill { start, metadata };
+        let mut new_ff = FloodFill {
+            start,
+            metadata,
+            shortest_path: HashMap::new(),
+        };
         new_ff.fill(start, edges);
+        for &key in edges.keys() {
+            new_ff.shortest_path.insert(key, new_ff.path_to(key));
+        }
         new_ff
     }
 
@@ -60,7 +68,7 @@ where
     }
 
     /// Backtrace shortest path
-    pub fn path_to(&self, end: K) -> Vec<K> {
+    fn path_to(&self, end: K) -> Vec<K> {
         let mut path: Vec<K> = vec![end];
         while let Some(ppk) = self.metadata[path.last().unwrap()].previous.clone() {
             path.push(ppk);
