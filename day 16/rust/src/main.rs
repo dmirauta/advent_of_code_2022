@@ -47,7 +47,7 @@ fn parse_valve(line: &str) -> (&str, u32, Vec<&str>) {
     (name, rate, conn.split(", ").collect())
 }
 
-struct Valves<'a> {
+struct ValveNetwork<'a> {
     all: Vec<Valve<'a>>,
     major: Vec<usize>,
     ids: HashMap<&'a str, usize>,
@@ -56,7 +56,7 @@ struct Valves<'a> {
     start_idx: usize,
 }
 
-impl<'a> Valves<'a> {
+impl<'a> ValveNetwork<'a> {
     fn from(contents: &'a String) -> Self {
         let parsed_valves = Vec::from_iter(contents.lines().map(parse_valve));
         let mut all = vec![];
@@ -98,6 +98,100 @@ impl<'a> Valves<'a> {
             start_idx,
         }
     }
+
+    fn replay_sequence(&self, agents: &Vec<AgentState>, time: RangeInclusive<usize>) {
+        let mut previous: HashMap<usize, usize> =
+            HashMap::from_iter((0..agents.len()).map(|i| (i, 0)));
+        let mut total_rate = 0;
+        let mut total_released = 0;
+        for i in time {
+            println!("\n== Minute {} ==", i);
+            println!("Releasing {total_rate} pressure.");
+            total_released += total_rate;
+            println!("{total_released} total.");
+            for (j, agent) in agents.iter().enumerate() {
+                let current = agent.hist[i - 1].clone();
+                print!("Agent {} ", j + 1);
+                match current {
+                    Action::Move(id) => {
+                        *previous.get_mut(&j).unwrap() = id;
+                        println!("moves to {}", self.all[id].name);
+                    }
+                    Action::Open => {
+                        total_rate += self.all[previous[&j]].rate;
+                        println!("opens {}", self.all[previous[&j]].name);
+                    }
+                    Action::Stay => println!("stays"),
+                };
+            }
+        }
+    }
+
+    fn search_for_best_action_sequence(&self, agents: Vec<AgentState>, max_sim_time: u32) {
+        let init_queue: Vec<NetworkState> = NetworkState::starting(self.num, agents).future(self);
+
+        stdout().execute(cursor::Hide).unwrap();
+        let best_per: Vec<_> = init_queue
+            .par_iter()
+            .enumerate()
+            .map(|(i, start)| self.best_sequence_from(start.clone(), max_sim_time, i))
+            .collect();
+        stdout().execute(cursor::Show).unwrap();
+        println!();
+
+        let best = best_per
+            .iter()
+            .max_by(|a, b| a.released_pressure.cmp(&b.released_pressure))
+            .unwrap();
+
+        self.replay_sequence(&best.agents, 1..=(max_sim_time as usize));
+
+        // for (i, o) in best.opened.iter().enumerate() {
+        //     if valves.all[i].rate > 0 {
+        //         let n = if *o { "" } else { "not " };
+        //         println!(
+        //             "{} ({}) {}opened",
+        //             valves.all[i].name, valves.all[i].rate, n
+        //         );
+        //     }
+        // }
+    }
+
+    fn best_sequence_from(&self, init: NetworkState, max_sim_time: u32, id: usize) -> NetworkState {
+        let mut best = init.clone();
+        let mut queue: Vec<NetworkState> = vec![init];
+
+        let mut expanded: u64 = 0;
+        let max_real_time = 60;
+        let start = Instant::now();
+
+        while let Some(mut current) = queue.pop() {
+            let secs_passed = start.elapsed().as_secs();
+            if secs_passed > max_real_time {
+                break;
+            }
+            if current.minute < max_sim_time {
+                queue.append(&mut current.future(self));
+            }
+            if current.released_pressure > best.released_pressure {
+                best = current;
+            }
+            if start.elapsed().as_millis() % 1000 == 0 || queue.len() < 2 {
+                print!(
+                    "(instance {id}) expanded = {expanded}, time = {secs_passed}, queue size = {}, best pressure released = {}     \r",
+                    queue.len(),
+                    best.released_pressure
+                );
+            }
+            expanded += 1;
+        }
+
+        if queue.len() > 0 {
+            println!("\nWarning: search terminated early.");
+        }
+
+        best
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -135,7 +229,7 @@ impl AgentState {
     }
 
     /// All possible transitions
-    fn future(&mut self, valves: &Valves, remaining_major: HashSet<usize>) -> Vec<Self> {
+    fn future(&mut self, valves: &ValveNetwork, remaining_major: HashSet<usize>) -> Vec<Self> {
         if let Some(action) = self.plan.pop_front() {
             return vec![self.transition(action)];
         }
@@ -148,9 +242,8 @@ impl AgentState {
 
         remaining_major
             .iter()
-            .filter_map(|&destination_idx| {
-                let path =
-                    valves.floodfills[&self.currently_at].shortest_path[&destination_idx].clone();
+            .map(|&destination_idx| {
+                let path = &valves.floodfills[&self.currently_at].shortest_path[&destination_idx];
 
                 let mut next = self.transition(Action::Move(path[1]));
                 next.targeting = Some(destination_idx.clone());
@@ -158,7 +251,7 @@ impl AgentState {
                     next.plan.push_back(Action::Move(future_dest))
                 }
                 next.plan.push_back(Action::Open); // Open destination
-                Some(next)
+                next
             })
             .collect()
     }
@@ -184,7 +277,7 @@ impl NetworkState {
         }
     }
 
-    fn transition(&self, new_agent_states: Vec<AgentState>, valves: &Valves) -> Self {
+    fn transition(&self, new_agent_states: Vec<AgentState>, valves: &ValveNetwork) -> Self {
         let mut next = self.clone();
         next.minute += 1;
         next.released_pressure += self.total_rate;
@@ -202,7 +295,7 @@ impl NetworkState {
         next
     }
 
-    fn remaining_targets(&self, valves: &Valves) -> HashSet<usize> {
+    fn remaining_targets(&self, valves: &ValveNetwork) -> HashSet<usize> {
         valves
             .major
             .iter()
@@ -212,7 +305,7 @@ impl NetworkState {
     }
 
     /// All possible transitions
-    fn future(&mut self, valves: &Valves) -> Vec<NetworkState> {
+    fn future(&mut self, valves: &ValveNetwork) -> Vec<NetworkState> {
         let remaining_targets = self.remaining_targets(valves);
         let agent_futures: Vec<Vec<AgentState>> = (0..self.agents.len())
             .map(|i| self.agents[i].future(valves, remaining_targets.clone()))
@@ -229,7 +322,8 @@ impl NetworkState {
                     for agent_2_state in agent_futures[1].iter().filter(|a2s| {
                         match (agent_1_state.targeting, a2s.targeting) {
                             (Some(t1), Some(t2)) => {
-                                if remaining_targets.len() > 2 {
+                                // dont empty iterator
+                                if remaining_targets.len() > 1 {
                                     t1 != t2
                                 } else {
                                     true
@@ -251,125 +345,14 @@ impl NetworkState {
             }
         }
     }
-
-    fn replay(&self, valves: &Vec<Valve>, time: RangeInclusive<usize>) {
-        let mut previous: HashMap<usize, usize> =
-            HashMap::from_iter((0..self.agents.len()).map(|i| (i, 0)));
-        let mut total_rate = 0;
-        let mut total_released = 0;
-        for i in time {
-            println!("\n== Minute {} ==", i);
-            println!("Releasing {total_rate} pressure.");
-            total_released += total_rate;
-            println!("{total_released} total.");
-            for (j, agent) in self.agents.iter().enumerate() {
-                let current = agent.hist[i - 1].clone();
-                print!("Agent {} ", j + 1);
-                match current {
-                    Action::Move(id) => {
-                        *previous.get_mut(&j).unwrap() = id;
-                        println!("moves to {}", valves[id].name);
-                    }
-                    Action::Open => {
-                        total_rate += valves[previous[&j]].rate;
-                        println!("opens {}", valves[previous[&j]].name);
-                    }
-                    Action::Stay => println!("stays"),
-                };
-            }
-        }
-    }
-    fn search_for_best_action_sequence(
-        valves: &Valves,
-        agents: Vec<AgentState>,
-        max_sim_time: u32,
-    ) {
-        let init_queue: Vec<NetworkState> =
-            NetworkState::starting(valves.num, agents).future(valves);
-
-        stdout().execute(cursor::Hide).unwrap();
-        let best_per: Vec<_> = init_queue
-            .par_iter()
-            .enumerate()
-            .map(|(i, start)| Self::best_from(valves, start.clone(), max_sim_time, i))
-            .collect();
-        stdout().execute(cursor::Show).unwrap();
-        println!();
-
-        let best = best_per
-            .iter()
-            .max_by(|a, b| a.released_pressure.cmp(&b.released_pressure))
-            .unwrap();
-
-        best.replay(&valves.all, 1..=(max_sim_time as usize));
-
-        // for (i, o) in best.opened.iter().enumerate() {
-        //     if valves.all[i].rate > 0 {
-        //         let n = if *o { "" } else { "not " };
-        //         println!(
-        //             "{} ({}) {}opened",
-        //             valves.all[i].name, valves.all[i].rate, n
-        //         );
-        //     }
-        // }
-    }
-
-    fn best_from(
-        valves: &Valves,
-        init: NetworkState,
-        max_sim_time: u32,
-        id: usize,
-    ) -> NetworkState {
-        let mut best = init.clone();
-        let mut queue: Vec<NetworkState> = vec![init];
-
-        let mut expanded: u64 = 0;
-        let max_real_time = 60;
-        let start = Instant::now();
-
-        while let Some(mut current) = queue.pop() {
-            let secs_passed = start.elapsed().as_secs();
-            if secs_passed > max_real_time {
-                break;
-            }
-            if current.minute < max_sim_time {
-                queue.append(&mut current.future(&valves));
-            }
-            if current.released_pressure > best.released_pressure {
-                best = current;
-            }
-            if start.elapsed().as_millis() % 1000 == 0 || queue.len() < 2 {
-                print!(
-                    "(instance {id}) expanded = {expanded}, time = {secs_passed}, queue size = {}, best pressure released = {}     \r",
-                    queue.len(),
-                    best.released_pressure
-                );
-            }
-            expanded += 1;
-        }
-
-        if queue.len() > 0 {
-            println!("\nWarning: search terminated early.");
-        }
-
-        best
-    }
 }
 
-fn part1(valves: &Valves) {
-    NetworkState::search_for_best_action_sequence(
-        valves,
-        vec![AgentState::new(valves.start_idx)],
-        30,
-    )
+fn part1(valves: &ValveNetwork) {
+    valves.search_for_best_action_sequence(vec![AgentState::new(valves.start_idx)], 30)
 }
 
-fn part2(valves: &Valves) {
-    NetworkState::search_for_best_action_sequence(
-        valves,
-        vec![AgentState::new(valves.start_idx); 2],
-        26,
-    )
+fn part2(valves: &ValveNetwork) {
+    valves.search_for_best_action_sequence(vec![AgentState::new(valves.start_idx); 2], 26)
 }
 
 static TEST_INPUT_PATH: &str = "../test_input";
@@ -379,6 +362,6 @@ fn main() {
     let tcontents = fs::read_to_string(TEST_INPUT_PATH).expect("Could not read {TEST_INPUT_PATH}");
     let contents = fs::read_to_string(INPUT_PATH).expect("Could not read {INPUT_PATH}");
 
-    let valves = Valves::from(&contents);
+    let valves = ValveNetwork::from(&tcontents);
     part2(&valves);
 }
