@@ -162,7 +162,7 @@ impl<'a> ValveNetwork<'a> {
         let mut queue: Vec<NetworkState> = vec![init];
 
         let mut expanded: u64 = 0;
-        let max_real_time = 60;
+        let max_real_time = 120;
         let start = Instant::now();
 
         while let Some(mut current) = queue.pop() {
@@ -228,10 +228,12 @@ impl AgentState {
         next
     }
 
-    /// All possible transitions
-    fn future(&mut self, valves: &ValveNetwork, remaining_major: HashSet<usize>) -> Vec<Self> {
-        if let Some(action) = self.plan.pop_front() {
-            return vec![self.transition(action)];
+    /// All possible (agent state) transitions
+    fn future(&self, valves: &ValveNetwork, remaining_major: HashSet<usize>) -> Vec<Self> {
+        if let Some(action) = self.plan.front() {
+            let mut new = self.transition(action.clone());
+            new.plan.pop_front();
+            return vec![new];
         }
 
         if remaining_major.len() == 0 {
@@ -262,6 +264,7 @@ struct NetworkState {
     minute: u32,
     total_rate: u32,
     released_pressure: u32,
+    targeted: Vec<bool>,
     opened: Vec<bool>,
     agents: Vec<AgentState>,
 }
@@ -272,73 +275,68 @@ impl NetworkState {
             minute: 0,
             total_rate: 0,
             released_pressure: 0,
+            targeted: vec![false; n],
             opened: vec![false; n],
             agents,
         }
     }
 
-    fn transition(&self, new_agent_states: Vec<AgentState>, valves: &ValveNetwork) -> Self {
+    fn transition(&self) -> Self {
         let mut next = self.clone();
         next.minute += 1;
         next.released_pressure += self.total_rate;
-        next.agents = new_agent_states;
-        for agent in next.agents.iter_mut() {
-            if let Some(Action::Open) = agent.hist.last() {
-                if !next.opened[agent.currently_at] {
-                    next.opened[agent.currently_at] = true;
-                    next.total_rate += valves.all[agent.currently_at].rate;
-                } else {
-                    *agent.hist.last_mut().unwrap() = Action::Stay;
-                }
-            }
-        }
+        next.agents.clear();
         next
     }
 
-    fn remaining_targets(&self, valves: &ValveNetwork) -> HashSet<usize> {
-        valves
-            .major
-            .iter()
-            .filter(|ni| !self.opened[**ni])
-            .map(|ni| ni.clone())
-            .collect()
+    fn add_agent(&mut self, agent: AgentState, valves: &ValveNetwork) {
+        if let Some(t) = agent.targeting {
+            self.targeted[t] = true;
+        }
+        if let Some(Action::Open) = agent.hist.last() {
+            self.opened[agent.currently_at] = true;
+            self.total_rate += valves.all[agent.currently_at].rate;
+        }
+        self.agents.push(agent);
     }
 
-    /// All possible transitions
+    /// All possible (network state) transitions
     fn future(&mut self, valves: &ValveNetwork) -> Vec<NetworkState> {
-        let remaining_targets = self.remaining_targets(valves);
-        let agent_futures: Vec<Vec<AgentState>> = (0..self.agents.len())
-            .map(|i| self.agents[i].future(valves, remaining_targets.clone()))
+        let remaining_targets = valves
+            .major
+            .iter()
+            .filter(|ni| !self.targeted[**ni])
+            .map(|ni| ni.clone())
             .collect();
+
         // TODO: arbitrary&neat multi agent
         match self.agents.len() {
-            1 => agent_futures[0]
-                .iter()
-                .map(|agent| self.transition(vec![agent.clone()], valves))
-                .collect(),
+            1 => {
+                let mut network_states = vec![];
+                for agent_state in self.agents[0].future(valves, remaining_targets) {
+                    let mut ns = self.transition();
+                    ns.add_agent(agent_state, valves);
+                    network_states.push(ns);
+                }
+                network_states
+            }
+
             2 => {
-                let mut future_states = vec![];
-                for agent_1_state in agent_futures[0].iter() {
-                    for agent_2_state in agent_futures[1].iter().filter(|a2s| {
-                        match (agent_1_state.targeting, a2s.targeting) {
-                            (Some(t1), Some(t2)) => {
-                                // dont empty iterator
-                                if remaining_targets.len() > 1 {
-                                    t1 != t2
-                                } else {
-                                    true
-                                }
-                            }
-                            _ => true,
-                        }
-                    }) {
-                        future_states.push(self.transition(
-                            vec![agent_1_state.clone(), agent_2_state.clone()],
-                            valves,
-                        ));
+                let mut network_states = vec![];
+                for agent_1_state in self.agents[0].future(valves, remaining_targets.clone()) {
+                    let mut rt = remaining_targets.clone();
+                    if let Some(t) = agent_1_state.targeting {
+                        rt.remove(&t);
+                    }
+                    let mut ns = self.transition();
+                    ns.add_agent(agent_1_state, valves);
+                    for agent_2_state in self.agents[1].future(valves, rt) {
+                        let mut ns2 = ns.clone();
+                        ns2.add_agent(agent_2_state, valves);
+                        network_states.push(ns2);
                     }
                 }
-                future_states
+                network_states
             }
             n => {
                 panic!("unsuported number of agents ({n})")
@@ -362,6 +360,6 @@ fn main() {
     let tcontents = fs::read_to_string(TEST_INPUT_PATH).expect("Could not read {TEST_INPUT_PATH}");
     let contents = fs::read_to_string(INPUT_PATH).expect("Could not read {INPUT_PATH}");
 
-    let valves = ValveNetwork::from(&tcontents);
+    let valves = ValveNetwork::from(&contents);
     part2(&valves);
 }
