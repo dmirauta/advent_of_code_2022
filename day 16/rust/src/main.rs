@@ -128,7 +128,19 @@ impl<'a> ValveNetwork<'a> {
     }
 
     fn search_for_best_action_sequence(&self, agents: Vec<AgentState>, max_sim_time: u32) {
-        let init_queue: Vec<NetworkState> = NetworkState::starting(self.num, agents).future(self);
+        let init_queue: Vec<NetworkState> = NetworkState::starting(self.num, agents)
+            .future(self)
+            .iter()
+            .filter(|initial_network_state| {
+                if initial_network_state.agents.len() == 2 {
+                    initial_network_state.agents[0].targeting.unwrap()
+                        < initial_network_state.agents[1].targeting.unwrap()
+                } else {
+                    true
+                }
+            })
+            .map(|v| v.clone())
+            .collect();
 
         stdout().execute(cursor::Hide).unwrap();
         let best_per: Vec<_> = init_queue
@@ -162,7 +174,7 @@ impl<'a> ValveNetwork<'a> {
         let mut queue: Vec<NetworkState> = vec![init];
 
         let mut expanded: u64 = 0;
-        let max_real_time = 120;
+        let max_real_time = 240;
         let start = Instant::now();
 
         while let Some(mut current) = queue.pop() {
@@ -282,11 +294,14 @@ impl NetworkState {
     }
 
     fn transition(&self) -> Self {
-        let mut next = self.clone();
-        next.minute += 1;
-        next.released_pressure += self.total_rate;
-        next.agents.clear();
-        next
+        Self {
+            minute: self.minute + 1,
+            total_rate: self.total_rate,
+            released_pressure: self.released_pressure + self.total_rate,
+            targeted: self.targeted.clone(),
+            opened: self.opened.clone(),
+            agents: vec![],
+        }
     }
 
     fn add_agent(&mut self, agent: AgentState, valves: &ValveNetwork) {
@@ -300,48 +315,47 @@ impl NetworkState {
         self.agents.push(agent);
     }
 
-    /// All possible (network state) transitions
-    fn future(&mut self, valves: &ValveNetwork) -> Vec<NetworkState> {
-        let remaining_targets = valves
+    fn remaining_targets(&self, valves: &ValveNetwork) -> HashSet<usize> {
+        valves
             .major
             .iter()
             .filter(|ni| !self.targeted[**ni])
             .map(|ni| ni.clone())
-            .collect();
+            .collect()
+    }
+
+    /// All possible (network state) transitions
+    fn future(&mut self, valves: &ValveNetwork) -> Vec<NetworkState> {
+        let remaining_targets = self.remaining_targets(valves);
 
         // TODO: arbitrary&neat multi agent
+        let mut network_states = vec![];
         match self.agents.len() {
             1 => {
-                let mut network_states = vec![];
                 for agent_state in self.agents[0].future(valves, remaining_targets) {
                     let mut ns = self.transition();
                     ns.add_agent(agent_state, valves);
                     network_states.push(ns);
                 }
-                network_states
             }
 
             2 => {
-                let mut network_states = vec![];
                 for agent_1_state in self.agents[0].future(valves, remaining_targets.clone()) {
-                    let mut rt = remaining_targets.clone();
-                    if let Some(t) = agent_1_state.targeting {
-                        rt.remove(&t);
-                    }
                     let mut ns = self.transition();
                     ns.add_agent(agent_1_state, valves);
-                    for agent_2_state in self.agents[1].future(valves, rt) {
+                    for agent_2_state in self.agents[1].future(valves, ns.remaining_targets(valves))
+                    {
                         let mut ns2 = ns.clone();
                         ns2.add_agent(agent_2_state, valves);
                         network_states.push(ns2);
                     }
                 }
-                network_states
             }
             n => {
                 panic!("unsuported number of agents ({n})")
             }
         }
+        network_states
     }
 }
 
